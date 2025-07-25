@@ -1,3 +1,4 @@
+import 'package:bookcycle/pages/auth/loginpage.dart';
 import 'package:flutter/material.dart';
 import 'package:bookcycle/screen_manage.dart';
 
@@ -32,7 +33,7 @@ class Registerpage extends StatelessWidget {
                 SizedBox(
                   height: screenHeight * 0.2,
                   child: Image.asset(
-                    "assets/images/sss.jpg", // Vous pouvez utiliser une image différente
+                    "assets/images/sss.jpg",
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -130,7 +131,12 @@ class Registerpage extends StatelessWidget {
             // Lien vers la page de connexion
             TextButton(
               onPressed: () {
-                Navigator.pop(context); // Retour à la page précédente (connexion)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const Loginpage(),
+                  ),
+                );
               },
               child: const Text(
                 "Déjà un compte ? Se connecter",
