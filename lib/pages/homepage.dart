@@ -81,17 +81,3 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 }
-
-// Votre écran BookStoreHomePage (à inclure ou importer)
-class BookStoreHomePage extends StatelessWidget {
-  const BookStoreHomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('Book Store Screen Content'),
-      ),
-    );
-  }
-}

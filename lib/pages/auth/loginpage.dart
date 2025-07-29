@@ -96,7 +96,6 @@ class Loginpage extends StatelessWidget {
                 ),
                 SizedBox(height: screenHeight * 0.03),
 
-                // Bouton de connexion
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
@@ -118,7 +117,6 @@ class Loginpage extends StatelessWidget {
                 ),
                 SizedBox(height: screenHeight * 0.02),
 
-                // Lien d'inscription
                 TextButton(
                   onPressed: () {
                     Navigator.push(

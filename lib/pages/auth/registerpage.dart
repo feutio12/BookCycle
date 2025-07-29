@@ -51,7 +51,6 @@ class Registerpage extends StatelessWidget {
             ),
             SizedBox(height: screenHeight * 0.02),
 
-            // Champ nom complet
             TextField(
               decoration: InputDecoration(
                 labelText: 'Nom complet',
@@ -64,8 +63,7 @@ class Registerpage extends StatelessWidget {
               ),
             ),
             SizedBox(height: screenHeight * 0.015),
-
-            // Champ email
+            
             TextField(
               decoration: InputDecoration(
                 labelText: 'Email',
@@ -128,7 +126,6 @@ class Registerpage extends StatelessWidget {
             ),
             SizedBox(height: screenHeight * 0.02),
 
-            // Lien vers la page de connexion
             TextButton(
               onPressed: () {
                 Navigator.push(

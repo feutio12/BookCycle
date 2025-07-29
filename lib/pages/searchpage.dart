@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '';
 
 class SearchPage extends StatelessWidget {
   const SearchPage({super.key});
