@@ -1,7 +1,87 @@
+// chatpage.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-// Classe représentant un message
+// 1. Modèle de discussion
+class ChatDiscussion {
+  final String chatId;
+  final String otherUserId;
+  final String otherUserName;
+  final String lastMessage;
+  final DateTime lastMessageTime;
+  final int unreadCount;
+
+  ChatDiscussion({
+    required this.chatId,
+    required this.otherUserId,
+    required this.otherUserName,
+    required this.lastMessage,
+    required this.lastMessageTime,
+    this.unreadCount = 0,
+  });
+
+  String get formattedTime => DateFormat('HH:mm').format(lastMessageTime);
+}
+
+// 2. Page de liste des discussions
+class DiscussionsListPage extends StatelessWidget {
+  final List<ChatDiscussion> discussions;
+
+  const DiscussionsListPage({super.key, required this.discussions});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Messages'),
+      ),
+      body: ListView.builder(
+        itemCount: discussions.length,
+        itemBuilder: (context, index) {
+          final discussion = discussions[index];
+          return ListTile(
+            leading: CircleAvatar(
+              child: Text(discussion.otherUserName[0]),
+            ),
+            title: Text(discussion.otherUserName),
+            subtitle: Text(discussion.lastMessage),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(discussion.formattedTime),
+                if (discussion.unreadCount > 0)
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      discussion.unreadCount.toString(),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChatPage(
+                    chatId: discussion.chatId,
+                    otherUserName: discussion.otherUserName,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+// 3. Modèle de message (inchangé)
 class ChatMessage {
   final String senderId;
   final String content;
@@ -18,7 +98,7 @@ class ChatMessage {
   String get formattedTime => DateFormat('HH:mm').format(timestamp);
 }
 
-// Classe gérant la logique du chat
+// 4. Contrôleur de chat (inchangé)
 class ChatController {
   final List<ChatMessage> _messages = [];
   final TextEditingController messageController = TextEditingController();
@@ -40,7 +120,7 @@ class ChatController {
   }
 }
 
-// Widget principal de la page de chat
+// 5. Page de conversation (peu changé)
 class ChatPage extends StatefulWidget {
   final String chatId;
   final String otherUserName;
@@ -62,13 +142,10 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     _chatController = ChatController();
-    // Charger les messages existants
     _loadMessages();
   }
 
   Future<void> _loadMessages() async {
-    // Ici vous pourriez charger les messages depuis une API
-    // Pour l'exemple, nous ajoutons quelques messages fictifs
     _chatController.addMessage(
       "Bonjour, votre livre est toujours disponible?",
       widget.otherUserName,
@@ -79,9 +156,7 @@ class _ChatPageState extends State<ChatPage> {
       "Moi",
       true,
     );
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   void _sendMessage() {
@@ -90,11 +165,7 @@ class _ChatPageState extends State<ChatPage> {
 
     _chatController.addMessage(content, "Moi", true);
     _chatController.messageController.clear();
-    if (mounted) {
-      setState(() {});
-    }
-
-    // Ici vous pourriez envoyer le message à votre backend
+    if (mounted) setState(() {});
   }
 
   @override
@@ -108,21 +179,16 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text("Discussion avec ${widget.otherUserName}"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              // Afficher les détails de l'échange
-            },
-          ),
-        ],
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: Column(
         children: [
           Expanded(
             child: ListView.builder(
               reverse: true,
-              padding: const EdgeInsets.all(8.0),
               itemCount: _chatController.messages.length,
               itemBuilder: (context, index) {
                 final message = _chatController.messages.reversed.toList()[index];
@@ -140,7 +206,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 }
 
-// Widget pour une bulle de message
+// 6. Widgets pour les bulles de message et champ de saisie (inchangés)
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
 
@@ -151,11 +217,8 @@ class _MessageBubble extends StatelessWidget {
     return Align(
       alignment: message.isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4.0),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16.0,
-          vertical: 10.0,
-        ),
+        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
         decoration: BoxDecoration(
           color: message.isMe
               ? Theme.of(context).colorScheme.primary
@@ -163,12 +226,8 @@ class _MessageBubble extends StatelessWidget {
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
-            bottomLeft: message.isMe
-                ? const Radius.circular(16)
-                : const Radius.circular(0),
-            bottomRight: message.isMe
-                ? const Radius.circular(0)
-                : const Radius.circular(16),
+            bottomLeft: message.isMe ? const Radius.circular(16) : const Radius.circular(0),
+            bottomRight: message.isMe ? const Radius.circular(0) : const Radius.circular(16),
           ),
         ),
         child: Column(
@@ -203,7 +262,6 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
-// Widget pour le champ d'entrée des messages
 class _MessageInputField extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onSend;

@@ -1,7 +1,7 @@
+// homepage.dart
 import 'package:flutter/material.dart';
-import 'package:bookcycle/pages/auth/loginpage.dart';
+import 'package:bookcycle/pages/chatpage.dart';
 import 'searchpage.dart';
-
 
 class Homepage extends StatelessWidget {
   const Homepage({super.key});
@@ -11,9 +11,7 @@ class Homepage extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'BookCycle',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: const MainScreen(),
     );
   }
@@ -29,15 +27,39 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 2;
 
-  final List<Widget> _screens = [
-    SearchPage(),
-    Loginpage(),
-    const Center(child: Text('page acceuil')),
-    const Center(child: Text('vente de livres')),
-    const Center(child: Text('votre profile')),
-
-
+  // Liste fictive de discussions
+  final List<ChatDiscussion> discussions = [
+    ChatDiscussion(
+      chatId: "1",
+      otherUserId: "2",
+      otherUserName: "Jean Dupont",
+      lastMessage: "Bonjour, le livre est-il disponible?",
+      lastMessageTime: DateTime.now().subtract(const Duration(minutes: 5)),
+      unreadCount: 2,
+    ),
+    ChatDiscussion(
+      chatId: "2",
+      otherUserId: "3",
+      otherUserName: "Marie Martin",
+      lastMessage: "Je suis intéressée par votre livre",
+      lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
+    ),
   ];
+
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    // Maintenant on peut initialiser _screens car discussions est disponible
+    _screens = [
+      SearchPage(),
+      DiscussionsListPage(discussions: discussions), // discussions est accessible ici
+      const Center(child: Text('Page d\'accueil')),
+      const Center(child: Text('Vente de livres')),
+      const Center(child: Text('Votre profil')),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +97,6 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.person),
             label: 'Profile',
           ),
-
         ],
       ),
     );
