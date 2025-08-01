@@ -1,4 +1,6 @@
 // homepage.dart
+import 'package:bookcycle/pages/Acceuilpage.dart';
+import 'package:bookcycle/pages/profilpage.dart';
 import 'package:flutter/material.dart';
 import 'package:bookcycle/pages/chatpage.dart';
 import 'searchpage.dart';
@@ -55,9 +57,9 @@ class _MainScreenState extends State<MainScreen> {
     _screens = [
       SearchPage(),
       DiscussionsListPage(discussions: discussions), // discussions est accessible ici
-      const Center(child: Text('Page d\'accueil')),
+      HomePage(),
       const Center(child: Text('Vente de livres')),
-      const Center(child: Text('Votre profil')),
+      ProfilePage(),
     ];
   }
 

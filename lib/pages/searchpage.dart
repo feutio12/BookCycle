@@ -1,7 +1,104 @@
 import 'package:flutter/material.dart';
 
-class SearchPage extends StatelessWidget {
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Book Search App',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: const SearchPage(),
+    );
+  }
+}
+
+class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
+
+  @override
+  State<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends State<SearchPage> {
+  final TextEditingController _searchController = TextEditingController();
+  List<String> _recentSearches = ['The Silent Patient', 'Atomic Habits', 'Educated - Tara Westover'];
+  List<String> _searchResults = [];
+  bool _isSearching = false;
+
+  // Données de démonstration
+  final List<String> _allBooks = [
+    'The Silent Patient',
+    'Atomic Habits',
+    'Educated - Tara Westover',
+    'Dune',
+    'The Hobbit',
+    '1984',
+    'To Kill a Mockingbird',
+    'The Great Gatsby'
+  ];
+
+  final List<String> _popularAuthors = [
+    'Feutio Fred',
+    'Kemgang Eloge',
+    'Sergio Ramos',
+    'J.K. Gabriel'
+  ];
+
+  final List<String> _trendingCategories = [
+    'Romance',
+    'Science Fiction',
+    'Biographie',
+    'Self-Help',
+    'Histoire'
+  ];
+
+  void _performSearch(String query) {
+    setState(() {
+      _isSearching = query.isNotEmpty;
+      if (_isSearching) {
+        _searchResults = _allBooks
+            .where((book) => book.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
+
+  void _addRecentSearch(String search) {
+    if (!_recentSearches.contains(search)) {
+      setState(() {
+        _recentSearches.insert(0, search);
+        if (_recentSearches.length > 5) {
+          _recentSearches.removeLast();
+        }
+      });
+    }
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _searchController.clear();
+      _isSearching = false;
+    });
+  }
+
+  void _removeRecentSearch(int index) {
+    setState(() {
+      _recentSearches.removeAt(index);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,9 +116,16 @@ class SearchPage extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'recherche livres, auteurs, par categories...',
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                suffixIcon: _isSearching
+                    ? IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: _clearSearch,
+                )
+                    : null,
                 filled: true,
                 fillColor: Colors.grey[100],
                 border: OutlineInputBorder(
@@ -31,18 +135,26 @@ class SearchPage extends StatelessWidget {
                 contentPadding: const EdgeInsets.symmetric(vertical: 15),
               ),
               style: const TextStyle(fontSize: 16),
+              onChanged: _performSearch,
+              onSubmitted: (value) {
+                if (value.isNotEmpty) {
+                  _addRecentSearch(value);
+                }
+              },
             ),
           ),
         ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Column(
+        child: _isSearching
+            ? _buildSearchResults()
+            : Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Trending Searches
             const Text(
-              '',
+              'Catégories Tendances',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -53,19 +165,15 @@ class SearchPage extends StatelessWidget {
             Wrap(
               spacing: 10,
               runSpacing: 10,
-              children: [
-                _buildChip('Romance'),
-                _buildChip('Science Fiction'),
-                _buildChip('Biographie'),
-                _buildChip('Self-Help'),
-                _buildChip('Histoire'),
-              ],
+              children: _trendingCategories
+                  .map((category) => _buildChip(category))
+                  .toList(),
             ),
             const SizedBox(height: 30),
 
             // Popular Authors
             const Text(
-              'Livres Populaires',
+              'Auteurs Populaires',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -77,19 +185,16 @@ class SearchPage extends StatelessWidget {
               height: 120,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                children: [
-                  _buildAuthorCard('Feutio\nFred', Icons.person),
-                  _buildAuthorCard('Kemgang\nEloge', Icons.person),
-                  _buildAuthorCard('Sergio\nRamos', Icons.person),
-                  _buildAuthorCard('J.K.\nGabriel', Icons.person),
-                ],
+                children: _popularAuthors
+                    .map((author) => _buildAuthorCard(author))
+                    .toList(),
               ),
             ),
             const SizedBox(height: 30),
 
             // Recent Searches
             const Text(
-              'Vos Recentes Recherches',
+              'Vos Récentes Recherches',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -98,11 +203,10 @@ class SearchPage extends StatelessWidget {
             ),
             const SizedBox(height: 15),
             Column(
-              children: [
-                _buildSearchItem('The Silent Patient'),
-                _buildSearchItem('Atomic Habits'),
-                _buildSearchItem('Educated - Tara Westover'),
-              ],
+              children: List.generate(
+                _recentSearches.length,
+                    (index) => _buildSearchItem(_recentSearches[index], index),
+              ),
             ),
           ],
         ),
@@ -110,17 +214,50 @@ class SearchPage extends StatelessWidget {
     );
   }
 
+  Widget _buildSearchResults() {
+    if (_searchResults.isEmpty) {
+      return const Center(
+        child: Text(
+          'Aucun résultat trouvé',
+          style: TextStyle(fontSize: 18, color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        return ListTile(
+          leading: const Icon(Icons.book, color: Colors.blue),
+          title: Text(_searchResults[index]),
+          onTap: () {
+            _addRecentSearch(_searchResults[index]);
+            // Naviguer vers la page du livre
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildChip(String label) {
-    return Chip(
-      label: Text(label),
-      backgroundColor: Colors.grey[100],
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+    return GestureDetector(
+      onTap: () {
+        _searchController.text = label;
+        _performSearch(label);
+      },
+      child: Chip(
+        label: Text(label),
+        backgroundColor: Colors.grey[100],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
       ),
     );
   }
 
-  Widget _buildAuthorCard(String name, IconData icon) {
+  Widget _buildAuthorCard(String name) {
     return Container(
       width: 100,
       margin: const EdgeInsets.only(right: 15),
@@ -129,7 +266,7 @@ class SearchPage extends StatelessWidget {
           CircleAvatar(
             radius: 30,
             backgroundColor: Colors.blue[50],
-            child: Icon(icon, size: 30, color: Colors.blue[700]),
+            child: const Icon(Icons.person, size: 30, color: Colors.blue),
           ),
           const SizedBox(height: 8),
           Text(
@@ -145,15 +282,19 @@ class SearchPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSearchItem(String title) {
+  Widget _buildSearchItem(String title, int index) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: const Icon(Icons.history, color: Colors.grey),
       title: Text(title),
       trailing: IconButton(
         icon: const Icon(Icons.close, size: 20),
-        onPressed: () {},
+        onPressed: () => _removeRecentSearch(index),
       ),
+      onTap: () {
+        _searchController.text = title;
+        _performSearch(title);
+      },
     );
   }
 }
