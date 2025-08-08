@@ -1,140 +1,95 @@
-import 'package:bookcycle/pages/homepage.dart';
+import 'package:bookcycle/pages/auth/registerpage.dart';
 import 'package:flutter/material.dart';
-import 'package:bookcycle/screen_manage.dart';
-import 'registerpage.dart';
+import 'package:bookcycle/pages/homepage.dart';
 
-class Loginpage extends StatelessWidget {
-  const Loginpage({super.key});
+import '../../composants/CustomTextfield.dart';
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  void _submitForm() {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const Homepage()),
+          );
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final padding = 24.0;
-
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(padding),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: screenHeight - padding * 2,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Section supérieure (logo et titre)
-                Column(
-                  children: [
-                    const Text(
-                      "Bienvenue",
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: screenHeight * 0.2,
-                      child: Image.asset(
-                        "assets/images/sss.jpg",
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: screenHeight * 0.02),
-
-                // Sous-titre
-                const Text(
-                  "Connectez-vous à votre compte",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Bienvenue", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 20),
+                  Image.asset("assets/images/sss.jpg", height: 120),
+                  const SizedBox(height: 30),
+          
+                  // Email Field
+                  CustomTextField(
+                    controller: _emailController,
+                    labelText: 'Email',
+                    prefixIcon: Icons.email,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) => value!.isEmpty ? 'Email requis' :
+                    !value.contains('@') ? 'Email invalide' : null,
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.03),
-
-                // Formulaire
-                AutofillGroup(
-                  child: Column(
-                    children: [
-                      // Champ email
-                      TextField(
-                        autofillHints: const [AutofillHints.email],
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          labelText: 'Email',
-                          labelStyle: const TextStyle(color: Colors.blue),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.blue),
-                          ),
-                          prefixIcon: const Icon(Icons.email, color: Colors.blue),
-                        ),
-                      ),
-                      SizedBox(height: screenHeight * 0.02),
-
-                      // Champ mot de passe
-                      TextField(
-                        autofillHints: const [AutofillHints.password],
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          labelText: 'Mot de passe',
-                          labelStyle: const TextStyle(color: Colors.blue),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          prefixIcon: const Icon(Icons.lock, color: Colors.blue),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 15),
+          
+                  // Password Field
+                  CustomTextField(
+                    controller: _passwordController,
+                    labelText: 'Mot de passe',
+                    prefixIcon: Icons.lock,
+                    obscureText: true,
+                    validator: (value) => value!.isEmpty ? 'Mot de passe requis' :
+                    value.length < 6 ? '6 caractères minimum' : null,
                   ),
-                ),
-                SizedBox(height: screenHeight * 0.03),
-
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 25),
+          
+                  // Submit Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _submitForm,
+                      child: _isLoading
+                          ? const CircularProgressIndicator()
+                          : const Text('CONNEXION'),
                     ),
                   ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const Homepage(),
-                      ),
-                    );
-                  },
-                  child: const Text("CONNEXION"),
-                ),
-                SizedBox(height: screenHeight * 0.02),
-
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const Registerpage(),
-                      ),
-                    );
-                  },
-                  child: const Text(
-                    "Vous n'avez pas de compte ? S'inscrire",
-                    style: TextStyle(
-                      color: Colors.blue,
-                      decoration: TextDecoration.underline,
-                    ),
+                  const SizedBox(height: 15),
+          
+                  // Register Link
+                  TextButton(
+                    onPressed: _isLoading ? null : () => Navigator.push(
+                        context, MaterialPageRoute(builder: (_) => const RegisterPage())),
+                    child: const Text("Pas de compte ? S'inscrire"),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

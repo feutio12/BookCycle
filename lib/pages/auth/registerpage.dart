@@ -1,150 +1,118 @@
-import 'package:bookcycle/pages/auth/loginpage.dart';
 import 'package:flutter/material.dart';
 import 'package:bookcycle/screen_manage.dart';
 
-class Registerpage extends StatelessWidget {
-  const Registerpage({super.key});
+import '../../composants/CustomTextfield.dart';
+import 'loginpage.dart';
+
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
+
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
+  bool _isLoading = false;
+
+  void _submitForm() {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ScreenManage()),
+          );
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final padding = 24.0;
-
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Padding(
-        padding: EdgeInsets.all(padding),
+      body: SafeArea(
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Column(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    "Créer un compte",
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                  const Text("Créer un compte", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 20),
+                  Image.asset("assets/images/sss.jpg", height: 120),
+                  const SizedBox(height: 30),
+          
+                  // Name Field
+                  CustomTextField(
+                    controller: _nameController,
+                    labelText: 'Nom complet',
+                    prefixIcon: Icons.person,
+                    validator: (value) => value!.isEmpty ? 'Nom requis' : null,
+                  ),
+                  const SizedBox(height: 15),
+          
+                  // Email Field
+                  CustomTextField(
+                    controller: _emailController,
+                    labelText: 'Email',
+                    prefixIcon: Icons.email,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) => value!.isEmpty ? 'Email requis' :
+                    !value.contains('@') ? 'Email invalide' : null,
+                  ),
+                  const SizedBox(height: 15),
+          
+                  // Password Field
+                  CustomTextField(
+                    controller: _passwordController,
+                    labelText: 'Mot de passe',
+                    prefixIcon: Icons.lock,
+                    obscureText: true,
+                    validator: (value) => value!.isEmpty ? 'Mot de passe requis' :
+                    value.length < 6 ? '6 caractères minimum' : null,
+                  ),
+                  const SizedBox(height: 15),
+          
+                  // Confirm Password
+                  CustomTextField(
+                    controller: _confirmController,
+                    labelText: 'Confirmer mot de passe',
+                    prefixIcon: Icons.lock_outline,
+                    obscureText: true,
+                    validator: (value) => value != _passwordController.text ?
+                    'Les mots de passe ne correspondent pas' : null,
+                  ),
+                  const SizedBox(height: 25),
+          
+                  // Submit Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _submitForm,
+                      child: _isLoading
+                          ? const CircularProgressIndicator()
+                          : const Text("S'INSCRIRE"),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  SizedBox(height: screenHeight * 0.01),
-                  SizedBox(
-                    height: screenHeight * 0.2,
-                    child: Image.asset(
-                      "assets/images/sss.jpg",
-                      fit: BoxFit.contain,
-                    ),
+                  const SizedBox(height: 15),
+          
+                  // Login Link
+                  TextButton(
+                    onPressed: _isLoading ? null : () => Navigator.pushReplacement(
+                        context, MaterialPageRoute(builder: (_) => const LoginPage())),
+                    child: const Text("Déjà un compte ? Se connecter"),
                   ),
                 ],
               ),
-              SizedBox(height: screenHeight * 0.02),
-          
-              const Text(
-                "Remplissez les informations pour créer votre compte",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.02),
-          
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'Nom complet',
-                  labelStyle: const TextStyle(color: Colors.blue),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.blue),
-                  ),
-                  prefixIcon: const Icon(Icons.person, color: Colors.blue),
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.015),
-              
-              TextField(
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  labelStyle: const TextStyle(color: Colors.blue),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(Icons.email, color: Colors.blue),
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.015),
-          
-              // Champ mot de passe
-              TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Mot de passe',
-                  labelStyle: const TextStyle(color: Colors.blue),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(Icons.lock, color: Colors.blue),
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.015),
-          
-              // Confirmation mot de passe
-              TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Confirmer le mot de passe',
-                  labelStyle: const TextStyle(color: Colors.blue),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: const Icon(Icons.lock_outline, color: Colors.blue),
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.03),
-          
-              // Bouton d'inscription
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ScreenManage(),
-                    ),
-                  );
-                },
-                child: const Text("S'INSCRIRE"),
-              ),
-              SizedBox(height: screenHeight * 0.02),
-          
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const Loginpage(),
-                    ),
-                  );
-                },
-                child: const Text(
-                  "Déjà un compte ? Se connecter",
-                  style: TextStyle(
-                    color: Colors.blue,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

@@ -83,7 +83,7 @@ class _OnboardingScreenState extends State<Navigate> {
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => const Loginpage()),
+                                builder: (context) => const LoginPage()),
                           );
                         } else {
                           controller.nextPage();
