@@ -1,12 +1,14 @@
-// homepage.dart
-import 'package:bookcycle/pages/Acceuilpage.dart';
-import 'package:bookcycle/pages/profilpage.dart';
+import 'package:bookcycle/pages/pages%20rincipales/Encherepage.dart';
 import 'package:flutter/material.dart';
-import 'package:bookcycle/pages/chatpage.dart';
-import 'searchpage.dart';
+import 'package:bookcycle/pages/pages%20rincipales/profilpage.dart';
+import 'package:bookcycle/pages/pages%20rincipales/chatpage.dart';
+import 'package:bookcycle/pages/pages%20rincipales/searchpage.dart';
+import 'pages rincipales/Acceuilpage.dart';
 
 class Homepage extends StatelessWidget {
-  const Homepage({super.key});
+  final Map<String, dynamic>? userData;
+
+  const Homepage({super.key, this.userData});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 2;
+  int _currentIndex = 2; // Index par défaut sur Home
 
   // Liste fictive de discussions
   final List<ChatDiscussion> discussions = [
@@ -53,12 +55,11 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // Maintenant on peut initialiser _screens car discussions est disponible
     _screens = [
       SearchPage(),
-      DiscussionsListPage(discussions: discussions), // discussions est accessible ici
-      HomePage(),
-      const Center(child: Text('Vente de livres')),
+      DiscussionsListPage(discussions: discussions),
+      const Acceuilpage(),
+      AuctionPage(),
       ProfilePage(),
     ];
   }
@@ -92,8 +93,8 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.monetization_on),
-            label: 'Vente',
+            icon: Icon(Icons.gavel_rounded),
+            label: 'Enchères',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),

@@ -120,15 +120,16 @@ class ChatController {
   }
 }
 
-// 5. Page de conversation (peu changé)
 class ChatPage extends StatefulWidget {
   final String chatId;
   final String otherUserName;
+  final String? initialMessage; // Nouveau paramètre optionnel
 
   const ChatPage({
     super.key,
     required this.chatId,
     required this.otherUserName,
+    this.initialMessage, // Message initial optionnel
   });
 
   @override
@@ -146,16 +147,14 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _loadMessages() async {
-    _chatController.addMessage(
-      "Bonjour, votre livre est toujours disponible?",
-      widget.otherUserName,
-      false,
-    );
-    _chatController.addMessage(
-      "Oui, il est disponible pour échange!",
-      "Moi",
-      true,
-    );
+    // Ajoute le message initial s'il est fourni
+    if (widget.initialMessage != null) {
+      _chatController.addMessage(
+        widget.initialMessage!,
+        widget.otherUserName,
+        false,
+      );
+    }
     if (mounted) setState(() {});
   }
 

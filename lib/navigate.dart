@@ -1,5 +1,5 @@
+import 'package:bookcycle/pages/homepage.dart';
 import 'package:flutter/material.dart';
-import 'package:bookcycle/pages/auth/loginpage.dart';
 import 'package:bookcycle/composants/composant1.dart';
 
 class Navigate extends StatefulWidget {
@@ -83,7 +83,7 @@ class _OnboardingScreenState extends State<Navigate> {
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => const LoginPage()),
+                                builder: (context) => const Homepage()),
                           );
                         } else {
                           controller.nextPage();

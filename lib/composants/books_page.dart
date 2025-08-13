@@ -9,6 +9,7 @@ class BooksPage extends StatelessWidget {
   final List<String> filters;
   final ColorScheme colorScheme;
   final TextTheme textTheme;
+  final String currentUserId; // Nouveau paramètre pour l'ID utilisateur
 
   const BooksPage({
     super.key,
@@ -19,6 +20,7 @@ class BooksPage extends StatelessWidget {
     required this.filters,
     required this.colorScheme,
     required this.textTheme,
+    required this.currentUserId, // Nouveau paramètre requis
   });
 
   @override
@@ -28,57 +30,67 @@ class BooksPage extends StatelessWidget {
         // En-tête avec titre et filtres
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Découvrez des livres',
-                  style: textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Découvrez des livres',
+                style: textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: filters.map((filter) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: FilterChip(
-                          label: Text(filter),
-                          selected: selectedFilter == filter,
-                          onSelected: (bool selected) {
-                            onFilterChanged(filter);
-                          },
-                          selectedColor: colorScheme.primaryContainer,
-                          checkmarkColor: colorScheme.onPrimaryContainer,
-                          labelStyle: TextStyle(
-                            color: selectedFilter == filter
-                                ? colorScheme.onPrimaryContainer
-                                : null,
-                          ),
+              ),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: filters.map((filter) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: FilterChip(
+                        label: Text(filter),
+                        selected: selectedFilter == filter,
+                        onSelected: (bool selected) {
+                          onFilterChanged(filter);
+                        },
+                        selectedColor: colorScheme.primaryContainer,
+                        checkmarkColor: colorScheme.onPrimaryContainer,
+                        labelStyle: TextStyle(
+                          color: selectedFilter == filter
+                              ? colorScheme.onPrimaryContainer
+                              : null,
                         ),
-                      );
-                    }).toList(),
-                  ),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
 
         // Affichage du nombre de résultats
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${books.length} livre${books.length > 1 ? 's' : ''} trouvé${books.length > 1 ? 's' : ''}',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${books.length} livre${books.length > 1 ? 's' : ''} trouvé${books.length > 1 ? 's' : ''}',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface.withOpacity(0.6),
+                ),
               ),
-            ),
+              if (selectedFilter != 'Tous')
+                TextButton(
+                  onPressed: () => onFilterChanged('Tous'),
+                  child: Text(
+                    'Tout voir',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -92,11 +104,15 @@ class BooksPage extends StatelessWidget {
             itemCount: books.length,
             itemBuilder: (context, index) {
               final book = books[index];
-              return BookCard(
-                book: book,
-                colorScheme: colorScheme,
-                textTheme: textTheme,
-                onLikePressed: onLikePressed,
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: BookCard(
+                  book: book,
+                  colorScheme: colorScheme,
+                  textTheme: textTheme,
+                  onLikePressed: onLikePressed,
+                  currentUserId: currentUserId, // Passage de l'ID utilisateur
+                ),
               );
             },
           ),
@@ -111,13 +127,13 @@ class BooksPage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.book_outlined,
+            Icons.search_off,
             size: 48,
             color: colorScheme.onSurface.withOpacity(0.3),
           ),
           const SizedBox(height: 16),
           Text(
-            'Aucun livre trouvé',
+            'Aucun résultat pour "$selectedFilter"',
             style: textTheme.bodyLarge?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.5),
             ),
@@ -125,7 +141,10 @@ class BooksPage extends StatelessWidget {
           const SizedBox(height: 8),
           TextButton(
             onPressed: () => onFilterChanged('Tous'),
-            child: const Text('Réinitialiser les filtres'),
+            child: Text(
+              'Réinitialiser les filtres',
+              style: TextStyle(color: colorScheme.primary),
+            ),
           ),
         ],
       ),

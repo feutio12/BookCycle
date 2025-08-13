@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "251093022105",
+    "project_id": "bookcycle-fee8b",
+    "storage_bucket": "bookcycle-fee8b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:251093022105:android:89c6812f07341af3b78f08",
+        "android_client_info": {
+          "package_name": "com.example.bookcycle"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_U7tGM7QQ8NDe-uug1uprOUQ02XBtj10"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

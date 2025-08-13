@@ -1,6 +1,7 @@
+import 'package:bookcycle/pages/pages%20rincipales/Acceuilpage.dart';
 import 'package:flutter/material.dart';
-import 'package:bookcycle/screen_manage.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../composants/CustomTextfield.dart';
 import 'loginpage.dart';
 
@@ -18,18 +19,54 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _isLoading = false;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      Future.delayed(const Duration(seconds: 1), () {
+      try {
+        setState(() => _isLoading = true);
+
+        // Créer l'utilisateur dans Firebase Auth
+        UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+
+        // Enregistrer les infos supplémentaires dans Firestore
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'uid': userCredential.user!.uid,
+          'name': _nameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'role': 'user', // Vous pouvez ajouter des rôles si nécessaire
+          'profileCompleted': false,
+        });
+
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const ScreenManage()),
+            MaterialPageRoute(builder: (_) => const LoginPage()),
           );
         }
-      });
+      } on FirebaseAuthException catch (e) {
+        String errorMessage = "Erreur d'inscription";
+        if (e.code == 'weak-password') {
+          errorMessage = 'Mot de passe trop faible';
+        } else if (e.code == 'email-already-in-use') {
+          errorMessage = 'Email déjà utilisé';
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 
