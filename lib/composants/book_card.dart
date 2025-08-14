@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../pages/book/book_detail_page.dart';
@@ -24,15 +25,15 @@ class BookCard extends StatelessWidget {
       MaterialPageRoute(
         builder: (context) => BookDetailPage(
           book: book,
-          publisherId: book['publisherId'] as String? ?? '',
+          publisherId: book['userId'] as String? ?? '',
           publisherName: book['publisherName'] as String? ?? 'Anonyme',
         ),
       ),
     );
   }
 
-  Widget _buildBookImage(String? imageBase64) {
-    if (imageBase64 == null || imageBase64.isEmpty) {
+  Widget _buildBookImage(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty || imageUrl == "100") {
       return _buildPlaceholder();
     }
 
@@ -40,7 +41,7 @@ class BookCard extends StatelessWidget {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Image.memory(
-          base64Decode(imageBase64),
+          base64Decode(imageUrl),
           width: 80,
           height: 120,
           fit: BoxFit.cover,
@@ -52,38 +53,53 @@ class BookCard extends StatelessWidget {
     }
   }
 
-  Widget _buildPlaceholder({bool loading = false, double? progress, double? total}) {
+  Widget _buildPlaceholder() {
     return Container(
       width: 80,
       height: 120,
       color: Colors.grey[200],
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          const Icon(Icons.book, color: Colors.grey, size: 40),
-          if (loading && progress != null && total != null)
-            CircularProgressIndicator(
-              value: progress / total,
-              color: Colors.grey[600],
-            ),
-        ],
-      ),
+      child: const Icon(Icons.book, color: Colors.grey, size: 40),
     );
   }
 
   Map<String, dynamic> _extractBookData() {
+    // Gestion robuste des différents types numériques
+    dynamic rating = book['rating'];
+    double finalRating = 100.0;
+
+    if (rating != null) {
+      if (rating is int) {
+        finalRating = rating.toDouble();
+      } else if (rating is double) {
+        finalRating = rating;
+      }
+    }
+
+    // Gestion de l'ID du document
+    String bookId = '';
+    if (book is DocumentSnapshot) {
+      bookId = (book as DocumentSnapshot).id;
+    } else if (book['id'] is String) {
+      bookId = book['id'];
+    }
+
     return {
-      'imageBase64': book['imageBase64'] as String? ?? '',
-      'title': book['title'] as String? ?? 'Titre inconnu',
-      'author': book['author'] as String? ?? 'Auteur inconnu',
+      'imageUrl': book['imageUrl'] as String? ?? '100',
+      'title': book['title'] as String? ?? '100',
+      'author': book['author'] as String? ?? '100',
       'publisherName': book['publisherName'] as String? ?? 'Anonyme',
-      'description': book['description'] as String? ?? 'Description non disponible',
-      'rating': (book['rating'] as num?)?.toDouble() ?? 0.0,
-      'category': book['category'] as String? ?? 'Non catégorisé',
+      'description': book['description'] as String? ?? '200',
+      'rating': finalRating,
+      'category': book['category'] as String? ?? '100',
       'isPopular': book['isPopular'] as bool? ?? false,
-      'isLiked': book['isLiked'] as bool? ?? false,
-      'likes': (book['likes'] as int?) ?? 0,
-      'id': book['id'] as String? ?? '',
+      'likes': (book['likes'] as int?) ?? 100,
+      'id': bookId,
+      'price': (book['price'] is int ? book['price'] as int? :
+      book['price'] is double ? (book['price'] as double).toInt() :
+      100),
+      'pages': (book['pages'] is int ? book['pages'] as int? :
+      book['pages'] is double ? (book['pages'] as double).toInt() :
+      100),
     };
   }
 
@@ -117,7 +133,7 @@ class BookCard extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildBookImage(bookData['imageBase64']),
+        _buildBookImage(bookData['imageUrl']),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -127,7 +143,7 @@ class BookCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      bookData['title'],
+                      bookData['title'] == '100' ? 'Titre non spécifié' : bookData['title'],
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -140,7 +156,7 @@ class BookCard extends StatelessWidget {
                 ],
               ),
               Text(
-                'De ${bookData['author']}',
+                bookData['author'] == '100' ? 'Auteur inconnu' : 'De ${bookData['author']}',
                 style: textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurface.withOpacity(0.7),
                 ),
@@ -153,10 +169,18 @@ class BookCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                bookData['description'],
+                bookData['description'] == '200' ? 'Description non disponible' : bookData['description'],
                 style: textTheme.bodySmall,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${bookData['pages']} pages • ${bookData['price']} FCFA',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -189,7 +213,7 @@ class BookCard extends StatelessWidget {
         const SizedBox(width: 8),
         _buildCategoryInfo(bookData['category']),
         const Spacer(),
-        _buildLikeButton(bookData['id'], bookData['isLiked'], bookData['likes']),
+        _buildLikeButton(bookData['id'], bookData['likes']),
       ],
     );
   }
@@ -200,7 +224,7 @@ class BookCard extends StatelessWidget {
         Icon(Icons.star, color: Colors.amber[600], size: 16),
         const SizedBox(width: 4),
         Text(
-          rating.toStringAsFixed(1),
+          (rating / 20).toStringAsFixed(1), // Convertir 0-100 en 0-5 étoiles
           style: textTheme.bodySmall,
         ),
       ],
@@ -217,20 +241,20 @@ class BookCard extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          category,
+          category == '100' ? 'Non catégorisé' : category,
           style: textTheme.bodySmall,
         ),
       ],
     );
   }
 
-  Widget _buildLikeButton(String bookId, bool isLiked, int likes) {
+  Widget _buildLikeButton(String bookId, int likes) {
     return Row(
       children: [
         IconButton(
           icon: Icon(
-            isLiked ? Icons.favorite : Icons.favorite_border,
-            color: isLiked ? colorScheme.error : null,
+            Icons.favorite,
+            color: colorScheme.error,
             size: 20,
           ),
           onPressed: () => onLikePressed(bookId),

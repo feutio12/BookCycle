@@ -4,9 +4,9 @@ import 'package:bookcycle/pages/book/add_book_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Acceuilpage extends StatefulWidget {
-
   const Acceuilpage({super.key});
 
   @override
@@ -15,6 +15,7 @@ class Acceuilpage extends StatefulWidget {
 
 class _AcceuilpageState extends State<Acceuilpage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   static const List<String> _filters = [
     'Tous',
     'Populaires',
@@ -27,19 +28,24 @@ class _AcceuilpageState extends State<Acceuilpage> {
     'Littérature',
   ];
 
-  static const int _maxBooksWithoutLogin = 1;
   List<Map<String, dynamic>> _allBooks = [];
   List<Map<String, dynamic>> _filteredBooks = [];
   String _selectedFilter = 'Tous';
   bool _isLoading = true;
-  int _booksAddedWithoutLogin = 0;
-
-  get userData => null;
+  bool _hasPostedAsGuest = false;
 
   @override
   void initState() {
     super.initState();
+    _checkGuestPostingStatus();
     _fetchBooks();
+  }
+
+  Future<void> _checkGuestPostingStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _hasPostedAsGuest = prefs.getBool('hasPostedAsGuest') ?? false;
+    });
   }
 
   Future<void> _fetchBooks() async {
@@ -61,6 +67,8 @@ class _AcceuilpageState extends State<Acceuilpage> {
           'isPopular': data['isPopular'] ?? false,
           'createdAt': data['createdAt']?.toDate() ?? DateTime.now(),
           'isLiked': false,
+          'isGuestBook': data['userId'] == null,
+          'userId': data['userId'] ?? '',
         };
       }).toList();
 
@@ -126,27 +134,40 @@ class _AcceuilpageState extends State<Acceuilpage> {
   }
 
   Future<void> _navigateToAddBook() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _auth.currentUser;
+    final isGuest = user == null;
 
-    if (user == null && _booksAddedWithoutLogin >= _maxBooksWithoutLogin) {
-      _showLoginRequiredSnackBar();
-      return;
+    // Vérification pour les invités
+    if (isGuest) {
+      final prefs = await SharedPreferences.getInstance();
+      final hasPosted = prefs.getBool('hasPostedAsGuest') ?? false;
+
+      if (hasPosted) {
+        _showGuestLimitSnackBar();
+        return;
+      }
+
+      final guestBooks = _allBooks.where((book) => book['isGuestBook'] == true).length;
+      if (guestBooks >= 1) {
+        await prefs.setBool('hasPostedAsGuest', true);
+        _showGuestLimitSnackBar();
+        return;
+      }
     }
 
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => AddBookPage(
-          isGuest: user == null,
-        ),
+        builder: (context) => AddBookPage(isGuest: isGuest),
       ),
     );
 
     if (result == true && mounted) {
-      if (user == null) {
-        setState(() => _booksAddedWithoutLogin++);
-      }
       await _fetchBooks();
+      if (isGuest) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('hasPostedAsGuest', true);
+      }
     }
   }
 
@@ -172,11 +193,11 @@ class _AcceuilpageState extends State<Acceuilpage> {
     );
   }
 
-  void _showLoginRequiredSnackBar() {
+  void _showGuestLimitSnackBar() {
     final scaffold = ScaffoldMessenger.of(context);
     scaffold.showSnackBar(
       SnackBar(
-        content: const Text('Connectez-vous pour ajouter plus de livres'),
+        content: const Text('Limite atteinte. Connectez-vous pour publier plus de livres'),
         action: SnackBarAction(
           label: 'Se connecter',
           onPressed: () {
@@ -184,15 +205,34 @@ class _AcceuilpageState extends State<Acceuilpage> {
             _navigateToLogin();
           },
         ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  void _showLoginRequiredSnackBar() {
+    final scaffold = ScaffoldMessenger.of(context);
+    scaffold.showSnackBar(
+      SnackBar(
+        content: const Text('Connectez-vous pour publier des livres'),
+        action: SnackBarAction(
+          label: 'Se connecter',
+          onPressed: () {
+            scaffold.hideCurrentSnackBar();
+            _navigateToLogin();
+          },
+        ),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = _auth.currentUser;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Bienvenue ${userData?['name'] ?? ''}'),
+        title: Text('Bienvenue ${user?.displayName ?? ''}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -213,7 +253,8 @@ class _AcceuilpageState extends State<Acceuilpage> {
         onFilterChanged: _filterBooks,
         filters: _filters,
         colorScheme: Theme.of(context).colorScheme,
-        textTheme: Theme.of(context).textTheme, currentUserId: '',
+        textTheme: Theme.of(context).textTheme,
+        currentUserId: user?.uid ?? '',
       ),
     );
   }

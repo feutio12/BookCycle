@@ -41,48 +41,47 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyA58MvH-lkVFQqfi5AXmVrhGfN9mfo4pig',
-    appId: '1:251093022105:web:4a8fb004b5447c7ab78f08',
-    messagingSenderId: '251093022105',
-    projectId: 'bookcycle-fee8b',
-    authDomain: 'bookcycle-fee8b.firebaseapp.com',
-    storageBucket: 'bookcycle-fee8b.firebasestorage.app',
-    measurementId: 'G-PM20J21EZN',
+    apiKey: 'AIzaSyBxUWuvSNr6MeJ1Pkgy1gaiHb1yAz1gVnk',
+    appId: '1:338365232443:web:b2014689e60a4858d4f31e',
+    messagingSenderId: '338365232443',
+    projectId: 'appbook-4e349',
+    authDomain: 'appbook-4e349.firebaseapp.com',
+    storageBucket: 'appbook-4e349.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyC_U7tGM7QQ8NDe-uug1uprOUQ02XBtj10',
-    appId: '1:251093022105:android:89c6812f07341af3b78f08',
-    messagingSenderId: '251093022105',
-    projectId: 'bookcycle-fee8b',
-    storageBucket: 'bookcycle-fee8b.firebasestorage.app',
+    apiKey: 'AIzaSyA55Mv26aN3w0hlDw9UFaFgKx1XASyQ7fc',
+    appId: '1:338365232443:android:0e433ac104134eced4f31e',
+    messagingSenderId: '338365232443',
+    projectId: 'appbook-4e349',
+    storageBucket: 'appbook-4e349.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAKceXR7D_DNa3m-WCcXLIdS5SiWoPLkhc',
-    appId: '1:251093022105:ios:ed87ca15745f8376b78f08',
-    messagingSenderId: '251093022105',
-    projectId: 'bookcycle-fee8b',
-    storageBucket: 'bookcycle-fee8b.firebasestorage.app',
+    apiKey: 'AIzaSyCMo68Tl05ZNfvydGzDuPRhFXEZaM4KWYM',
+    appId: '1:338365232443:ios:d1eba15358171485d4f31e',
+    messagingSenderId: '338365232443',
+    projectId: 'appbook-4e349',
+    storageBucket: 'appbook-4e349.firebasestorage.app',
     iosBundleId: 'com.example.bookcycle',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAKceXR7D_DNa3m-WCcXLIdS5SiWoPLkhc',
-    appId: '1:251093022105:ios:ed87ca15745f8376b78f08',
-    messagingSenderId: '251093022105',
-    projectId: 'bookcycle-fee8b',
-    storageBucket: 'bookcycle-fee8b.firebasestorage.app',
+    apiKey: 'AIzaSyCMo68Tl05ZNfvydGzDuPRhFXEZaM4KWYM',
+    appId: '1:338365232443:ios:d1eba15358171485d4f31e',
+    messagingSenderId: '338365232443',
+    projectId: 'appbook-4e349',
+    storageBucket: 'appbook-4e349.firebasestorage.app',
     iosBundleId: 'com.example.bookcycle',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyA58MvH-lkVFQqfi5AXmVrhGfN9mfo4pig',
-    appId: '1:251093022105:web:9de9c732261eed54b78f08',
-    messagingSenderId: '251093022105',
-    projectId: 'bookcycle-fee8b',
-    authDomain: 'bookcycle-fee8b.firebaseapp.com',
-    storageBucket: 'bookcycle-fee8b.firebasestorage.app',
-    measurementId: 'G-8FVDKP1HHT',
+    apiKey: 'AIzaSyBxUWuvSNr6MeJ1Pkgy1gaiHb1yAz1gVnk',
+    appId: '1:338365232443:web:a5d60c6f2b0c3f81d4f31e',
+    messagingSenderId: '338365232443',
+    projectId: 'appbook-4e349',
+    authDomain: 'appbook-4e349.firebaseapp.com',
+    storageBucket: 'appbook-4e349.firebasestorage.app',
   );
+
 }

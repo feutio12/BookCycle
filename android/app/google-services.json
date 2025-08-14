@@ -1,13 +1,32 @@
 {
   "project_info": {
-    "project_number": "251093022105",
-    "project_id": "bookcycle-fee8b",
-    "storage_bucket": "bookcycle-fee8b.firebasestorage.app"
+    "project_number": "338365232443",
+    "project_id": "appbook-4e349",
+    "storage_bucket": "appbook-4e349.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:251093022105:android:89c6812f07341af3b78f08",
+        "mobilesdk_app_id": "1:338365232443:android:4eefa7d9ada255bcd4f31e",
+        "android_client_info": {
+          "package_name": "com.example.appbook"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA55Mv26aN3w0hlDw9UFaFgKx1XASyQ7fc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:338365232443:android:0e433ac104134eced4f31e",
         "android_client_info": {
           "package_name": "com.example.bookcycle"
         }
@@ -15,7 +34,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyC_U7tGM7QQ8NDe-uug1uprOUQ02XBtj10"
+          "current_key": "AIzaSyA55Mv26aN3w0hlDw9UFaFgKx1XASyQ7fc"
         }
       ],
       "services": {
