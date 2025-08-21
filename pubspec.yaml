@@ -108,4 +108,5 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/BookCycle.png"
+  image_path: "assets/images/Logo.png"
+  adaptive_icon_background: "#FF0000"  # Couleur de fond
