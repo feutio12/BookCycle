@@ -26,7 +26,7 @@ class BookCard extends StatelessWidget {
         builder: (context) => BookDetailPage(
           book: book,
           publisherId: book['userId'] as String? ?? '',
-          publisherName: book['publisherName'] as String? ?? 'Anonyme',
+          publisherName: book['publisherName'] as String? ?? 'Anonyme', bookId: '',
         ),
       ),
     );

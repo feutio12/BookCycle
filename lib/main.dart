@@ -2,7 +2,6 @@ import 'package:bookcycle/navigate.dart';
 import 'package:bookcycle/pages/animation.dart';
 import 'package:bookcycle/pages/auth/loginpage.dart';
 import 'package:bookcycle/pages/homepage.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,10 +10,22 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(const MyApp());
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    runApp(const MyApp());
+  } catch (e) {
+    // Fallback en cas d'erreur Firebase
+    runApp(const MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Text('Erreur de connexion. Veuillez réessayer.'),
+        ),
+      ),
+    ));
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -32,8 +43,12 @@ class MyApp extends StatelessWidget {
             return const SplashAnimation();
           }
 
+          if (snapshot.hasError) {
+            return _buildErrorScreen('Erreur de chargement');
+          }
+
           if (snapshot.data == true) {
-            return Navigate();
+            return const Navigate();
           }
 
           return StreamBuilder<User?>(
@@ -42,6 +57,11 @@ class MyApp extends StatelessWidget {
               if (userSnapshot.connectionState == ConnectionState.waiting) {
                 return const SplashAnimation();
               }
+
+              if (userSnapshot.hasError) {
+                return _buildErrorScreen('Erreur d\'authentification');
+              }
+
               return userSnapshot.hasData ? const Homepage() : const LoginPage();
             },
           );
@@ -51,11 +71,41 @@ class MyApp extends StatelessWidget {
   }
 
   static Future<bool> _checkFirstLaunch() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isFirstLaunch = prefs.getBool('first_launch') ?? true;
-    if (isFirstLaunch) {
-      await prefs.setBool('first_launch', false);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isFirstLaunch = prefs.getBool('first_launch') ?? true;
+      if (isFirstLaunch) {
+        await prefs.setBool('first_launch', false);
+      }
+      return isFirstLaunch;
+    } catch (e) {
+      // En cas d'erreur SharedPreferences, on considère que ce n'est pas le premier lancement
+      return false;
     }
-    return isFirstLaunch;
+  }
+
+  static Widget _buildErrorScreen(String message) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 50, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: const TextStyle(fontSize: 18),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                runApp(const MyApp());
+              },
+              child: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

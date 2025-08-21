@@ -2,16 +2,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:bookcycle/pages/auth/loginpage.dart'; // Assurez-vous que le chemin est correct
+import 'package:bookcycle/pages/auth/loginpage.dart';
+import 'package:flutter/rendering.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  runApp(const BookCycleApp());
-}
+import '../../composants/common_components.dart';
+import '../../composants/common_utils.dart';
 
-class BookCycleApp extends StatelessWidget {
-  const BookCycleApp({super.key});
+class ProfilePage extends StatelessWidget {
+  const ProfilePage({super.key, User? user});
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +17,7 @@ class BookCycleApp extends StatelessWidget {
       title: 'BookCycle',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E7D32),
+          seedColor: AppColors.accentGreen,
           brightness: Brightness.light,
         ),
         useMaterial3: true,
@@ -32,30 +30,24 @@ class BookCycleApp extends StatelessWidget {
             if (user != null) {
               return UserProfileScreen(user: user);
             }
-            return const AuthWrapper(); // Nouveau wrapper pour gérer auth
+            return Scaffold(
+              body: Center(
+                child: InfoMessage(
+                  message: 'Vous n\'êtes pas encore connecté',
+                  icon: Icons.person_outline,
+                  color: AppColors.primaryBlue,
+                ),
+              ),
+            );
           }
-          return const Center(child: CircularProgressIndicator());
+          return const Scaffold(
+            body: LoadingIndicator(message: 'Chargement...'),
+          );
         },
       ),
     );
   }
 }
-
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: PageView(
-        children: [
-          const LoginPage(),
-        ],
-      ),
-    );
-  }
-}
-
 
 class UserProfileScreen extends StatefulWidget {
   final User user;
@@ -69,11 +61,27 @@ class UserProfileScreen extends StatefulWidget {
 class _UserProfileScreenState extends State<UserProfileScreen> {
   Map<String, dynamic>? userData;
   bool isLoading = true;
+  final ScrollController _scrollController = ScrollController();
+  bool _showAppBarTitle = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+
+    _scrollController.addListener(() {
+      if (_scrollController.offset > 100 && !_showAppBarTitle) {
+        setState(() => _showAppBarTitle = true);
+      } else if (_scrollController.offset <= 100 && _showAppBarTitle) {
+        setState(() => _showAppBarTitle = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -93,17 +101,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       }
     } catch (e) {
       setState(() => isLoading = false);
-      _showError('Erreur de chargement: ${e.toString()}');
+      AppUtils.showErrorSnackBar(context, 'Erreur de chargement: ${e.toString()}');
     }
   }
 
   Future<void> _createDefaultUserDocument() async {
     try {
       final newUser = {
-        'name': widget.user.displayName ?? 'Nouvel utilisateur',
+        'name': widget.user.displayName,
         'email': widget.user.email,
         'memberSince': Timestamp.now(),
-        'bio': 'Bienvenue sur BookCycle!',
+        'bio': 'Nouvel utilisateur sur BookCycle!',
         'booksShared': 0,
         'booksReceived': 0,
         'rating': 0.0,
@@ -116,129 +124,344 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           .set(newUser);
 
       setState(() {
-        userData = newUser;
+        userData = userData;
         isLoading = false;
       });
     } catch (e) {
       setState(() => isLoading = false);
-      _showError('Erreur de création: ${e.toString()}');
+      AppUtils.showErrorSnackBar(context, 'Erreur de création: ${e.toString()}');
     }
   }
 
   Future<void> _signOut() async {
     try {
       await FirebaseAuth.instance.signOut();
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
     } catch (e) {
-      _showError('Erreur de déconnexion: ${e.toString()}');
+      AppUtils.showErrorSnackBar(context, 'Erreur de déconnexion: ${e.toString()}');
     }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     if (isLoading || userData == null) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: LoadingIndicator(message: 'Chargement du profil...'),
       );
     }
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Profil de ${userData!['name']}'),
+        backgroundColor: _showAppBarTitle
+            ? AppColors.primaryBlue.withOpacity(0.9)
+            : Colors.transparent,
+        elevation: _showAppBarTitle ? 4 : 0,
+        title: AnimatedOpacity(
+          opacity: _showAppBarTitle ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          child: Text('Profil de ${userData!['name']}'),
+        ),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _signOut,
+            tooltip: 'Déconnexion',
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildUserHeader(),
-            const SizedBox(height: 24),
-            _buildUserStats(),
-            const SizedBox(height: 24),
-            _buildProfileSection(),
-          ],
-        ),
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 280.0,
+            backgroundColor: Colors.transparent,
+            flexibleSpace: FlexibleSpaceBar(
+              background: _buildProfileHeader(),
+              collapseMode: CollapseMode.parallax,
+            ),
+            automaticallyImplyLeading: false,
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                children: [
+                  _buildUserStats(),
+                  const SizedBox(height: 24),
+                  _buildProfileSection(),
+                  const SizedBox(height: 24),
+                  _buildActionButtons(),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildUserHeader() {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 40,
-          backgroundImage: widget.user.photoURL != null
-              ? NetworkImage(widget.user.photoURL!)
-              : null,
-          child: widget.user.photoURL == null
-              ? const Icon(Icons.person, size: 40)
-              : null,
-        ),
-        const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              userData!['name'],
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Text(userData!['email'] ?? ''),
-            Text('Membre depuis ${_formatDate(userData!['memberSince'])}'),
+  Widget _buildProfileHeader() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.primaryBlue,
+            AppColors.primaryBlue.withOpacity(0.7),
           ],
         ),
-      ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          const SizedBox(height: 70),
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 4.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 56,
+                  backgroundImage: widget.user.photoURL != null
+                      ? NetworkImage(widget.user.photoURL!)
+                      : null,
+                  child: widget.user.photoURL == null
+                      ? const Icon(Icons.person,
+                      size: 50,
+                      color: Colors.white)
+                      : null,
+                ),
+              ),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.edit, size: 18),
+                  color: AppColors.primaryBlue,
+                  onPressed: () {
+                    // Action pour modifier la photo de profil
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            userData!['name'] ?? '',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            userData!['email'] ?? '',
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Membre depuis ${_formatDate(userData!['memberSince'])}',
+            style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white70
+            ),
+          ),
+          const SizedBox(height: 30),
+        ],
+      ),
     );
   }
 
   Widget _buildUserStats() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _buildStatItem('Partagés', userData!['booksShared'].toString()),
-        _buildStatItem('Reçus', userData!['booksReceived'].toString()),
-        _buildStatItem('Note', userData!['rating'].toStringAsFixed(1)),
-      ],
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildStatItem(
+              'Publications',
+              userData!['booksShared'].toString(),
+              Icons.post_add_rounded,
+              AppColors.accentGreen,
+            ),
+            _buildVerticalDivider(),
+            _buildStatItem(
+              'Reçus',
+              userData!['booksReceived'].toString(),
+              Icons.book,
+              AppColors.primaryBlue,
+            ),
+            _buildVerticalDivider(),
+            _buildStatItem(
+              'Note',
+              userData!['rating'].toStringAsFixed(1),
+              Icons.star,
+              Colors.amber,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildStatItem(String label, String value) {
+  Widget _buildVerticalDivider() {
+    return Container(
+      width: 1,
+      height: 40,
+      color: Colors.grey.shade300,
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
     return Column(
       children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 24, color: color),
+        ),
+        const SizedBox(height: 12),
         Text(
           value,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold
+          ),
         ),
-        Text(label, style: const TextStyle(fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildProfileSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'À propos',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.info_outline, color: AppColors.primaryBlue),
+                const SizedBox(width: 8),
+                const Text(
+                  'À propos',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 18),
+                  onPressed: () {
+                    // Action pour modifier la bio
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              userData!['bio'] ?? '',
+              style: AppTextStyles.bodyLarge,
+              textAlign: TextAlign.justify,
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(userData!['bio'] ?? ''),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.edit),
+            label: const Text('Modifier le profil'),
+            onPressed: () {
+              // Action pour modifier le profil
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.settings),
+            label: const Text('Préférences'),
+            onPressed: () {
+              // Action pour les préférences
+            },
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 
   String _formatDate(dynamic date) {
     if (date is Timestamp) {
-      return '${date.toDate().day}/${date.toDate().month}/${date.toDate().year}';
+      final DateTime dateTime = date.toDate();
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     }
     return 'date inconnue';
   }

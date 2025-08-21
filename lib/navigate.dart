@@ -13,19 +13,19 @@ class _OnboardingScreenState extends State<Navigate> {
   late final OnboardingController controller;
   final List<OnboardingPage> pages = [
     OnboardingPage(
-      title: 'Découvrez des milliers de livres',
-      description: 'Accédez à une vaste collection de livres dans tous les genres',
-      imagePath: 'assets/images/logo.png',
+      title: "Découvrez BookCycle",
+      description: "Échangez vos livres avec d'autres passionnés de lecture et donnez une nouvelle vie à votre bibliothèque.",
+      imagePath: "assets/images/logo.png",
     ),
     OnboardingPage(
-      title: 'Gérez votre bibliothèque',
-      description: 'Organisez et suivez vos lectures facilement',
-      imagePath: 'assets/images/sss.jpg',
+      title: "Partagez sans limites",
+      description: "Proposez vos livres à l'échange et trouvez ceux qui vous intéressent parmi des milliers d'ouvrages.",
+      imagePath: "assets/images/Library-pana.png",
     ),
     OnboardingPage(
-      title: 'Partagez avec la communauté',
-      description: 'Échangez avec d\'autres passionnés de lectures',
-      imagePath: 'assets/images/Library-pana.png',
+      title: "Rejoignez la communauté",
+      description: "Connectez-vous avec d'autres lecteurs, échangez vos avis et participez à des événements littéraires.",
+      imagePath: "assets/images/ccc.jpg",
     ),
   ];
 
@@ -44,7 +44,7 @@ class _OnboardingScreenState extends State<Navigate> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F9FF), // Fond bleu très clair
       body: SafeArea(
         child: Stack(
           children: [
@@ -59,15 +59,19 @@ class _OnboardingScreenState extends State<Navigate> {
                 });
               },
               itemBuilder: (context, index) {
-                return OnboardingContent(page: pages[index]);
+                return OnboardingContent(
+                  page: pages[index],
+                  pageIndex: index, onNextPressed: () {  },
+                );
               },
             ),
 
             // Bouton en bas centré
             Align(
               alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 60),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 40),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -75,7 +79,7 @@ class _OnboardingScreenState extends State<Navigate> {
                       currentPage: controller.currentPage,
                       pageCount: pages.length,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 30),
                     OnboardingActionButton(
                       isLastPage: controller.currentPage == pages.length - 1,
                       onPressed: () {
@@ -94,6 +98,28 @@ class _OnboardingScreenState extends State<Navigate> {
                 ),
               ),
             ),
+
+            // Bouton de saut en haut à droite (seulement sur les premières pages)
+            if (controller.currentPage < pages.length - 1)
+              Positioned(
+                top: 20,
+                right: 20,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const Homepage()),
+                    );
+                  },
+                  child: const Text(
+                    'Passer',
+                    style: TextStyle(
+                      color: Color(0xFF1976D2),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

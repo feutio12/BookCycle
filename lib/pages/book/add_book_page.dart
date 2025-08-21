@@ -9,6 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../composants/common_components.dart';
+import '../../composants/common_utils.dart';
+
 class AddBookPage extends StatefulWidget {
   final bool isGuest;
   const AddBookPage({super.key, required this.isGuest});
@@ -28,7 +31,6 @@ class _AddBookPageState extends State<AddBookPage> {
     'rating': TextEditingController(),
   };
 
-  final _picker = ImagePicker();
   File? _imageFile;
   String? _selectedCategory;
   bool _isLoading = false;
@@ -61,56 +63,37 @@ class _AddBookPageState extends State<AddBookPage> {
 
   Future<void> _pickImage() async {
     try {
-      final pickedFile = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 70,
-      );
-
-      if (pickedFile != null) {
-        final file = File(pickedFile.path);
-        if (await file.length() > 1048576) {
-          _showError('L\'image est trop grande (max 1MB)');
-          return;
-        }
-
+      final file = await AppUtils.pickImage();
+      if (file != null) {
         setState(() {
           _imageFile = file;
           _uploadError = null;
         });
       }
     } catch (e) {
-      _showError('Erreur: ${e.toString()}');
+      AppUtils.showErrorSnackBar(context, e.toString());
     }
   }
 
   Future<String?> _convertImageToBase64() async {
-    if (_imageFile == null) return null;
-
-    try {
-      final bytes = await _imageFile!.readAsBytes();
-      return base64Encode(bytes);
-    } catch (e) {
-      setState(() => _uploadError = 'Erreur de conversion: ${e.toString()}');
-      return null;
-    }
-  }
-
-  void _showError(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    }
+    return await AppUtils.convertImageToBase64(_imageFile);
   }
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_imageFile == null) return _showError('Veuillez ajouter une image');
-    if (_selectedCategory == null) return _showError('Veuillez sélectionner une catégorie');
+    if (_imageFile == null) {
+      AppUtils.showErrorSnackBar(context, 'Veuillez ajouter une image');
+      return;
+    }
+    if (_selectedCategory == null) {
+      AppUtils.showErrorSnackBar(context, 'Veuillez sélectionner une catégorie');
+      return;
+    }
 
     // Vérification pour les invités
     if (widget.isGuest && _hasPostedAsGuest) {
-      return _showError('Connectez-vous pour ajouter plus de livres');
+      AppUtils.showErrorSnackBar(context, 'Connectez-vous pour ajouter plus de livres');
+      return;
     }
 
     setState(() => _isLoading = true);
@@ -123,8 +106,7 @@ class _AddBookPageState extends State<AddBookPage> {
       await _saveBookToFirestore(bookData);
 
       if (widget.isGuest) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('hasPostedAsGuest', true);
+        await AppUtils.setGuestPostingStatus(true);
       }
 
       _showSuccessMessageAndRedirect();
@@ -136,6 +118,32 @@ class _AddBookPageState extends State<AddBookPage> {
   }
 
   Future<Map<String, dynamic>> _prepareBookData(String imageBase64) async {
+    String publisherName = 'Anonyme';
+
+    if (!widget.isGuest) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        publisherName = user.displayName ?? 'Anonyme';
+
+        // Si l'utilisateur n'a pas de nom défini, essayez de récupérer depuis Firestore
+        if (publisherName == 'Anonyme') {
+          try {
+            final userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
+
+            if (userDoc.exists && userDoc.data() != null) {
+              final userData = userDoc.data()!;
+              publisherName = userData['name'] ?? userData['username'] ?? 'Anonyme';
+            }
+          } catch (e) {
+            print('Erreur lors de la récupération du nom: $e');
+          }
+        }
+      }
+    }
+
     final bookData = {
       'pages': int.tryParse(_controllers['pages']!.text) ?? 100,
       'price': int.tryParse(_controllers['price']!.text) ?? 100,
@@ -149,20 +157,14 @@ class _AddBookPageState extends State<AddBookPage> {
       'imageUrl': imageBase64.isEmpty ? "100" : imageBase64,
       'isPopular': false,
       'likes': 0,
+      'publisherName': publisherName,
     };
 
     if (!widget.isGuest) {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         bookData['userId'] = user.uid;
-        bookData['publisherName'] = user.displayName ?? 'Anonyme';
       }
-    }
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const Homepage()),
-      );
     }
 
     return bookData;
@@ -175,10 +177,13 @@ class _AddBookPageState extends State<AddBookPage> {
   }
 
   void _showSuccessMessageAndRedirect() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Livre ajouté avec succès')),
+    AppUtils.showSuccessSnackBar(context, 'Livre ajouté avec succès');
+
+    // Redirection vers la page d'accueil
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const Homepage()),
+            (route) => false
     );
-    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
   }
 
   void _showErrorMessage(dynamic error) {
@@ -190,14 +195,14 @@ class _AddBookPageState extends State<AddBookPage> {
     } else {
       message = 'Erreur: ${error.toString()}';
     }
-    _showError(message);
+    AppUtils.showErrorSnackBar(context, message);
   }
 
-  Widget _buildFormField(String label, String key, {bool isNumber = false}) {
-    return TextFormField(
-      controller: _controllers[key],
-      decoration: InputDecoration(labelText: label),
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+  Widget _buildFormField(String label, String key, {bool isNumber = false, required int maxLines}) {
+    return FormTextField(
+      controller: _controllers[key]!,
+      label: label,
+      isNumber: isNumber,
       validator: (value) {
         if (value == null || value.isEmpty) return 'Ce champ est requis';
         if (isNumber && int.tryParse(value) == null) return 'Entrez un nombre valide';
@@ -214,91 +219,90 @@ class _AddBookPageState extends State<AddBookPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.backgroundColor,
+        body: LoadingIndicator(message: 'Publication en cours...'),
+      );
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ajouter un livre')),
+      appBar: AppBar(
+        title: const Text('Ajouter un livre'),
+        backgroundColor: AppColors.primaryBlue,
+        foregroundColor: Colors.white,
+      ),
+      backgroundColor: AppColors.backgroundColor,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              // Image picker
-              GestureDetector(
+              ImagePickerWidget(
+                imageFile: _imageFile,
                 onTap: _pickImage,
-                child: Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                    image: _imageFile != null
-                        ? DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover)
-                        : null,
-                  ),
-                  child: _imageFile == null
-                      ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add_a_photo, size: 50),
-                        SizedBox(height: 8),
-                        Text('Ajouter une couverture'),
-                      ],
-                    ),
-                  )
-                      : null,
-                ),
+                errorMessage: _uploadError,
               ),
-              if (_uploadError != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(_uploadError!, style: const TextStyle(color: Colors.red)),
-                ),
-
-              const SizedBox(height: 20),
-              _buildFormField('Titre', 'title'),
+              const SizedBox(height: 24),
+              _buildFormField('Titre du livre', 'title', maxLines: 3),
               const SizedBox(height: 16),
-              _buildFormField('Auteur', 'author'),
+              _buildFormField('Auteur', 'author', maxLines: 3),
               const SizedBox(height: 16),
-              _buildFormField('Description', 'description'),
+              _buildFormField('Description', 'description', maxLines: 3),
               const SizedBox(height: 16),
-
-              // Price and Pages row
-              Row(
-                children: [
-                  Expanded(child: _buildFormField('Prix', 'price', isNumber: true)),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildFormField('Pages', 'pages', isNumber: true)),
-                ],
-              ),
-
+              _buildFormField('Prix (€)', 'price', isNumber: true, maxLines: 3),
               const SizedBox(height: 16),
-              _buildFormField('Note (0-100)', 'rating', isNumber: true),
+              _buildFormField('Nombre de pages', 'pages', isNumber: true, maxLines: 3),
+              const SizedBox(height: 16),
+              _buildFormField('Note (0-100)', 'rating', isNumber: true, maxLines: 3),
               const SizedBox(height: 16),
 
               // Category dropdown
               DropdownButtonFormField<String>(
                 value: _selectedCategory,
-                decoration: const InputDecoration(labelText: 'Catégorie'),
-                items: _categories.map((c) => DropdownMenuItem(
-                  value: c,
-                  child: Text(c),
-                )).toList(),
-                onChanged: (value) => setState(() => _selectedCategory = value),
-                validator: (value) => value == null ? 'Sélectionnez une catégorie' : null,
+                decoration: InputDecoration(
+                  labelText: 'Catégorie',
+                  labelStyle: const TextStyle(color: AppColors.primaryBlue),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primaryBlue.withOpacity(0.5)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+                items: _categories.map((String category) {
+                  return DropdownMenuItem<String>(
+                    value: category,
+                    child: Text(category),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedCategory = newValue;
+                  });
+                },
+                validator: (value) {
+                  if (value == null) return 'Veuillez sélectionner une catégorie';
+                  return null;
+                },
               ),
 
               const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _submitForm,
-                  child: const Text('PUBLIER LE LIVRE', style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
+              PrimaryButton(
+                text: 'PUBLIER LE LIVRE',
+                onPressed: _submitForm,
+                isLoading: _isLoading,
               ),
+              if (widget.isGuest)
+                const InfoMessage(
+                  message: 'Mode invité: vous ne pouvez publier qu\'un seul livre',
+                ),
             ],
           ),
         ),

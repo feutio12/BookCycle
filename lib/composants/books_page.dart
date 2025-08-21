@@ -20,7 +20,7 @@ class BooksPage extends StatelessWidget {
     required this.filters,
     required this.colorScheme,
     required this.textTheme,
-    required this.currentUserId, // Nouveau paramètre requis
+    required this.currentUserId, required void Function(Map<String, dynamic> book) onBookPressed, // Nouveau paramètre requis
   });
 
   @override

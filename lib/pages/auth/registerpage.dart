@@ -1,7 +1,7 @@
-import 'package:bookcycle/pages/pages%20rincipales/Acceuilpage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../composants/CustomButtom.dart';
 import '../../composants/CustomTextfield.dart';
 import 'loginpage.dart';
 
@@ -27,22 +27,11 @@ class _RegisterPageState extends State<RegisterPage> {
       try {
         setState(() => _isLoading = true);
 
-        // Créer l'utilisateur dans Firebase Auth
-        UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        // pour créer l'utilisateur dans Firebase Auth
+        UserCredential _ = await _auth.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-
-        // Enregistrer les infos supplémentaires dans Firestore
-        await _firestore.collection('users').doc(userCredential.user!.uid).set({
-          'uid': userCredential.user!.uid,
-          'name': _nameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'createdAt': FieldValue.serverTimestamp(),
-          'role': 'user', // Vous pouvez ajouter des rôles si nécessaire
-          'profileCompleted': false,
-        });
-
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -83,10 +72,9 @@ class _RegisterPageState extends State<RegisterPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text("Créer un compte", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 20),
-                  Image.asset("assets/images/sss.jpg", height: 120),
+                  Image.asset("assets/images/BookCycle.png", height: 220),
                   const SizedBox(height: 30),
-          
+
                   // Name Field
                   CustomTextField(
                     controller: _nameController,
@@ -95,7 +83,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     validator: (value) => value!.isEmpty ? 'Nom requis' : null,
                   ),
                   const SizedBox(height: 15),
-          
+
                   // Email Field
                   CustomTextField(
                     controller: _emailController,
@@ -106,7 +94,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     !value.contains('@') ? 'Email invalide' : null,
                   ),
                   const SizedBox(height: 15),
-          
+
                   // Password Field
                   CustomTextField(
                     controller: _passwordController,
@@ -117,7 +105,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     value.length < 6 ? '6 caractères minimum' : null,
                   ),
                   const SizedBox(height: 15),
-          
+
                   // Confirm Password
                   CustomTextField(
                     controller: _confirmController,
@@ -128,24 +116,23 @@ class _RegisterPageState extends State<RegisterPage> {
                     'Les mots de passe ne correspondent pas' : null,
                   ),
                   const SizedBox(height: 25),
-          
-                  // Submit Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submitForm,
-                      child: _isLoading
-                          ? const CircularProgressIndicator()
-                          : const Text("S'INSCRIRE"),
-                    ),
+
+                  // Submit Button - REMPLACÉ PAR CustomButton
+                  CustomButton(
+                    onPressed: _submitForm,
+                    text: "S'INSCRIRE",
+                    isLoading: _isLoading,
                   ),
                   const SizedBox(height: 15),
-          
+
                   // Login Link
                   TextButton(
                     onPressed: _isLoading ? null : () => Navigator.pushReplacement(
                         context, MaterialPageRoute(builder: (_) => const LoginPage())),
-                    child: const Text("Déjà un compte ? Se connecter"),
+                    child: const Text(
+                        "Déjà un compte ? Se connecter",
+                      style: TextStyle(color: Colors.blue),
+                    ) ,
                   ),
                 ],
               ),

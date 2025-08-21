@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../composants/CustomButtom.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -65,6 +67,13 @@ class _LoginPageState extends State<LoginPage> {
       }
     }
   }
+  Future<bool> isAdmin(String userId) async {
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get();
+    return userDoc['role'] == 'admin';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,15 +87,13 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    "Bienvenue",
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                  const Text("CONNEXION",
+                      style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold)
                   ),
-                  const SizedBox(height: 20),
-                  Image.asset("assets/images/sss.jpg", height: 120),
+                  const SizedBox(height: 40),
+                  Image.asset("assets/images/BookCycle.png",  height: 250),
                   const SizedBox(height: 30),
 
-                  // Email Field
                   CustomTextField(
                     controller: _emailController,
                     labelText: 'Email',
@@ -100,7 +107,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 15),
 
-                  // Password Field
                   CustomTextField(
                     controller: _passwordController,
                     labelText: 'Mot de passe',
@@ -114,22 +120,13 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 25),
 
-                  // Submit Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submitForm,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: _isLoading
-                          ? const CircularProgressIndicator()
-                          : const Text('CONNEXION'),
-                    ),
+                  CustomButton(
+                    onPressed: _submitForm,
+                    text: 'CONNEXION',
+                    isLoading: _isLoading,
                   ),
                   const SizedBox(height: 15),
 
-                  // Register Link
                   TextButton(
                     onPressed: _isLoading
                         ? null
@@ -137,7 +134,10 @@ class _LoginPageState extends State<LoginPage> {
                       context,
                       MaterialPageRoute(builder: (_) => const RegisterPage()),
                     ),
-                    child: const Text("Pas de compte ? S'inscrire"),
+                    child: const Text(
+                        "Pas de compte ? S'inscrire",
+                      style: TextStyle(color: Colors.blue)
+                    ),
                   ),
                 ],
               ),

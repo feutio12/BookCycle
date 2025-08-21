@@ -26,7 +26,7 @@ class OnboardingController {
   void nextPage() {
     if (currentPage < 2) {
       pageController.nextPage(
-        duration: const Duration(milliseconds: 500),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
       currentPage++;
@@ -56,14 +56,14 @@ class PageIndicator extends StatelessWidget {
       children: List.generate(
         pageCount,
             (index) => AnimatedContainer(
-          duration: const Duration(milliseconds: 0),
+          duration: const Duration(milliseconds: 300),
           margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: currentPage == index ? 8 : 8,
+          width: currentPage == index ? 14 : 8,
           height: 8,
           decoration: BoxDecoration(
             color: currentPage == index
-                ? Colors.blue
-                : Colors.grey.withOpacity(0.3),
+                ? const Color(0xFF1976D2) // Bleu principal
+                : const Color(0xFFBBDEFB), // Bleu clair
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -75,62 +75,130 @@ class PageIndicator extends StatelessWidget {
 // Widget pour le contenu d'une page d'onboarding
 class OnboardingContent extends StatelessWidget {
   final OnboardingPage page;
+  final int pageIndex;
+  final VoidCallback onNextPressed;
 
-  const OnboardingContent({super.key, required this.page});
+  const OnboardingContent({
+    super.key,
+    required this.page,
+    required this.pageIndex,
+    required this.onNextPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          children: [
-            const SizedBox(height: 50),
-            Hero(
-              tag: 'book-image',
-              child: Image.asset(
-                page.imagePath,
-                height: 300,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 300,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.book, size: 50, color: Colors.grey),
-                ),
+    return Container(
+      color: const Color(0xFFF5F9FF), // Fond bleu très clair
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Section supérieure avec l'image
+          Container(
+            height: MediaQuery.of(context).size.height * 0.4,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(40),
+                bottomRight: Radius.circular(40),
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
-          ],
-        ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 170),
-          child: Column(
-            children: [
-              Text(
-                page.title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Text(
-                  page.description,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                    height: 1.5,
+            child: Center(
+              child: Hero(
+                tag: 'book-image',
+                child: Image.asset(
+                  page.imagePath,
+                  height: 250,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 250,
+                    width: 250,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE3F2FD),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Icon(Icons.book, size: 60, color: Color(0xFF1976D2)),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+
+          // Section centrale avec le contenu textuel
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Séparateur décoratif
+                  Container(
+                    width: 60,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 30),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1976D2).withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+
+                  // Titre
+                  Text(
+                    page.title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1976D2), // Bleu principal
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Description
+                  Text(
+                    page.description,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[700],
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Section inférieure avec l'indicateur et le bouton
+          Padding(
+            padding: const EdgeInsets.only(bottom: 40),
+            child: Column(
+              children: [
+                // Indicateur de page (uniquement ici, pas dans la section centrale)
+                PageIndicator(
+                  currentPage: pageIndex,
+                  pageCount: 3,
+                ),
+
+                const SizedBox(height: 30),
+
+                // Bouton d'action
+                OnboardingActionButton(
+                  isLastPage: pageIndex == 2,
+                  onPressed: onNextPressed,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -149,13 +217,14 @@ class OnboardingActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 10),
+      duration: const Duration(milliseconds: 300),
       child: isLastPage
           ? ElevatedButton(
+        key: const ValueKey('commencer'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
-          padding: const EdgeInsets.symmetric(
-              horizontal: 20, vertical: 10),
+          backgroundColor: const Color(0xFF1976D2), // Bleu principal
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
@@ -168,15 +237,15 @@ class OnboardingActionButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
           ),
         ),
       )
           : ElevatedButton(
+        key: const ValueKey('next'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
-          padding: const EdgeInsets.symmetric(
-              horizontal: 20, vertical: 10),
+          backgroundColor: const Color(0xFF1976D2),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
@@ -190,17 +259,12 @@ class OnboardingActionButton extends StatelessWidget {
             Text(
               'Suivant',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
               ),
             ),
             SizedBox(width: 8),
-            Icon(
-              Icons.arrow_forward,
-              color: Colors.white,
-              size: 20,
-            ),
+            Icon(Icons.arrow_forward, size: 18),
           ],
         ),
       ),

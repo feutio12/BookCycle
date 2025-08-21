@@ -1,71 +1,93 @@
-class Auction {
-  final String id;
-  final String title;
-  final String? description;
-  final double currentBid;
-  final double? startingPrice;
-  final DateTime endTime;
-  final String? imageUrl;
-  final int? bidderCount;
-  final String? winner;
-  final bool isActive;
-  final String? bookCondition;
-  final String? sellerId;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-  Auction({
+class Enchere {
+  final String id;
+  final String titre;
+  final String description;
+  final double prixDepart;
+  late final double prixActuel;
+  final DateTime dateFin;
+  final String imageUrl;
+  late final int nombreEncherisseurs;
+  final bool estActive;
+  final String etatLivre;
+  final String? gagnant;
+  late final String? dernierEncherisseur;
+  late final DateTime? derniereOffre;
+
+  Enchere({
     required this.id,
-    required this.title,
-    this.description,
-    required this.currentBid,
-    this.startingPrice,
-    required this.endTime,
-    this.imageUrl,
-    this.bidderCount,
-    this.winner,
-    required this.isActive,
-    this.bookCondition,
-    this.sellerId,
+    required this.titre,
+    required this.description,
+    required this.prixDepart,
+    required this.prixActuel,
+    required this.dateFin,
+    required this.imageUrl,
+    this.nombreEncherisseurs = 0,
+    this.estActive = true,
+    required this.etatLivre,
+    this.gagnant,
+    this.dernierEncherisseur,
+    this.derniereOffre,
   });
 
-  factory Auction.fromMap(Map<String, dynamic> map) {
-    return Auction(
-      id: map['id'],
-      title: map['title'],
-      description: map['description'],
-      currentBid: map['currentBid']?.toDouble() ?? 0.0,
-      startingPrice: map['startingPrice']?.toDouble(),
-      endTime: DateTime.parse(map['endTime']),
-      imageUrl: map['imageUrl'],
-      bidderCount: map['bidderCount'],
-      winner: map['winner'],
-      isActive: map['isActive'] ?? false,
-      bookCondition: map['bookCondition'],
-      sellerId: map['sellerId'],
+  factory Enchere.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Enchere(
+      id: doc.id,
+      titre: data['titre'] ?? 'Sans titre',
+      description: data['description'] ?? '',
+      prixDepart: (data['prixDepart'] as num).toDouble(),
+      prixActuel: (data['prixActuel'] as num).toDouble(),
+      dateFin: (data['dateFin'] as Timestamp).toDate(),
+      imageUrl: data['imageUrl'] ?? '',
+      nombreEncherisseurs: data['nombreEncherisseurs'] ?? 0,
+      estActive: data['estActive'] ?? true,
+      etatLivre: data['etatLivre'] ?? 'Non spécifié',
+      gagnant: data['gagnant'],
+      dernierEncherisseur: data['dernierEncherisseur'],
+      derniereOffre: data['derniereOffre']?.toDate(),
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toFirestore() {
     return {
-      'id': id,
-      'title': title,
+      'titre': titre,
       'description': description,
-      'currentBid': currentBid,
-      'startingPrice': startingPrice,
-      'endTime': endTime.toIso8601String(),
+      'prixDepart': prixDepart,
+      'prixActuel': prixActuel,
+      'dateFin': dateFin,
       'imageUrl': imageUrl,
-      'bidderCount': bidderCount,
-      'winner': winner,
-      'isActive': isActive,
-      'bookCondition': bookCondition,
-      'sellerId': sellerId,
+      'nombreEncherisseurs': nombreEncherisseurs,
+      'estActive': estActive,
+      'etatLivre': etatLivre,
+      'gagnant': gagnant,
+      'dernierEncherisseur': dernierEncherisseur,
+      'derniereOffre': derniereOffre,
     };
   }
 
-  String get timeLeft {
-    final now = DateTime.now();
-    if (endTime.isBefore(now)) return 'Terminée';
+  String get tempsRestant {
+    final maintenant = DateTime.now();
+    if (dateFin.isBefore(maintenant)) return 'Terminée';
 
-    final difference = endTime.difference(now);
-    return '${difference.inHours}h ${difference.inMinutes.remainder(60)}m';
+    final difference = dateFin.difference(maintenant);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}j ${difference.inHours.remainder(24)}h';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ${difference.inMinutes.remainder(60)}m';
+    } else {
+      return '${difference.inMinutes}m';
+    }
+  }
+
+  bool get estTerminee => dateFin.isBefore(DateTime.now());
+
+  void mettreAJourOffre(double nouveauPrix, String encherisseurId) {
+    prixActuel = nouveauPrix;
+    nombreEncherisseurs++;
+    dernierEncherisseur = encherisseurId;
+    derniereOffre = DateTime.now();
   }
 }

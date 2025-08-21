@@ -1,135 +1,18 @@
-// chatpage.dart
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
-// 1. Modèle de discussion
-class ChatDiscussion {
-  final String chatId;
-  final String otherUserId;
-  final String otherUserName;
-  final String lastMessage;
-  final DateTime lastMessageTime;
-  final int unreadCount;
-
-  ChatDiscussion({
-    required this.chatId,
-    required this.otherUserId,
-    required this.otherUserName,
-    required this.lastMessage,
-    required this.lastMessageTime,
-    this.unreadCount = 0,
-  });
-
-  String get formattedTime => DateFormat('HH:mm').format(lastMessageTime);
-}
-
-// 2. Page de liste des discussions
-class DiscussionsListPage extends StatelessWidget {
-  final List<ChatDiscussion> discussions;
-
-  const DiscussionsListPage({super.key, required this.discussions});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Messages'),
-      ),
-      body: ListView.builder(
-        itemCount: discussions.length,
-        itemBuilder: (context, index) {
-          final discussion = discussions[index];
-          return ListTile(
-            leading: CircleAvatar(
-              child: Text(discussion.otherUserName[0]),
-            ),
-            title: Text(discussion.otherUserName),
-            subtitle: Text(discussion.lastMessage),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(discussion.formattedTime),
-                if (discussion.unreadCount > 0)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      discussion.unreadCount.toString(),
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ),
-              ],
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChatPage(
-                    chatId: discussion.chatId,
-                    otherUserName: discussion.otherUserName,
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-// 3. Modèle de message (inchangé)
-class ChatMessage {
-  final String senderId;
-  final String content;
-  final DateTime timestamp;
-  final bool isMe;
-
-  ChatMessage({
-    required this.senderId,
-    required this.content,
-    required this.timestamp,
-    required this.isMe,
-  });
-
-  String get formattedTime => DateFormat('HH:mm').format(timestamp);
-}
-
-// 4. Contrôleur de chat (inchangé)
-class ChatController {
-  final List<ChatMessage> _messages = [];
-  final TextEditingController messageController = TextEditingController();
-
-  List<ChatMessage> get messages => _messages;
-
-  void addMessage(String content, String senderId, bool isMe) {
-    final message = ChatMessage(
-      senderId: senderId,
-      content: content,
-      timestamp: DateTime.now(),
-      isMe: isMe,
-    );
-    _messages.add(message);
-  }
-
-  void dispose() {
-    messageController.dispose();
-  }
-}
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/chats.dart';
 
 class ChatPage extends StatefulWidget {
   final String chatId;
+  final String otherUserId;
   final String otherUserName;
-  final String? initialMessage; // Nouveau paramètre optionnel
 
   const ChatPage({
     super.key,
     required this.chatId,
-    required this.otherUserName,
-    this.initialMessage, // Message initial optionnel
+    required this.otherUserId,
+    required this.otherUserName, required String initialMessage,
   });
 
   @override
@@ -137,39 +20,162 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  late final ChatController _chatController;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  late Stream<QuerySnapshot> _messagesStream;
+  bool _isSending = false;
 
   @override
   void initState() {
     super.initState();
-    _chatController = ChatController();
-    _loadMessages();
+    _initializeChat();
   }
 
-  Future<void> _loadMessages() async {
-    // Ajoute le message initial s'il est fourni
-    if (widget.initialMessage != null) {
-      _chatController.addMessage(
-        widget.initialMessage!,
-        widget.otherUserName,
-        false,
-      );
+  Future<void> _initializeChat() async {
+    await _createChatIfNeeded();
+    _messagesStream = _firestore
+        .collection('chats')
+        .doc(widget.chatId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+    _markMessagesAsRead();
+  }
+
+  Future<void> _markMessagesAsRead() async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+
+      final chatDoc = await _firestore.collection('chats').doc(widget.chatId).get();
+      if (chatDoc.exists) {
+        final lastMessage = await _firestore
+            .collection('chats')
+            .doc(widget.chatId)
+            .collection('messages')
+            .orderBy('timestamp', descending: true)
+            .limit(1)
+            .get();
+
+        if (lastMessage.docs.isNotEmpty) {
+          final lastMsgData = lastMessage.docs.first.data() as Map<String, dynamic>;
+          if (lastMsgData['senderId'] != currentUser.uid) {
+            await _firestore.collection('chats').doc(widget.chatId).update({
+              'unreadCount': 0,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Erreur lors du marquage des messages comme lus: $e');
     }
-    if (mounted) setState(() {});
   }
 
-  void _sendMessage() {
-    final content = _chatController.messageController.text.trim();
+  Future<void> _sendMessage() async {
+    if (_isSending) return;
+
+    final content = _messageController.text.trim();
     if (content.isEmpty) return;
 
-    _chatController.addMessage(content, "Moi", true);
-    _chatController.messageController.clear();
-    if (mounted) setState(() {});
+    setState(() {
+      _isSending = true;
+    });
+
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vous devez être connecté pour envoyer un message')),
+        );
+        return;
+      }
+
+      // Créer le message
+      final messageData = {
+        'senderId': currentUser.uid,
+        'senderName': currentUser.displayName ?? 'Anonyme',
+        'content': content,
+        'timestamp': FieldValue.serverTimestamp(),
+      };
+
+      // Ajouter le message à la sous-collection messages
+      await _firestore
+          .collection('chats')
+          .doc(widget.chatId)
+          .collection('messages')
+          .add(messageData);
+
+      // Mettre à jour les métadonnées du chat
+      await _firestore.collection('chats').doc(widget.chatId).update({
+        'lastMessage': content,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'unreadCount': FieldValue.increment(1),
+      });
+
+      _messageController.clear();
+
+      // Défiler vers le bas après l'envoi
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } catch (e) {
+      debugPrint('Erreur lors de l\'envoi du message: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de l\'envoi du message: $e')),
+      );
+    } finally {
+      setState(() {
+        _isSending = false;
+      });
+    }
+  }
+
+  Future<void> _createChatIfNeeded() async {
+    try {
+      final chatDoc = await _firestore.collection('chats').doc(widget.chatId).get();
+      if (!chatDoc.exists) {
+        final currentUser = _auth.currentUser;
+        if (currentUser == null) return;
+
+        // Créer le document chat avec la structure initiale
+        await _firestore.collection('chats').doc(widget.chatId).set({
+          'participants': [currentUser.uid, widget.otherUserId],
+          'lastMessage': '',
+          'lastMessageTime': FieldValue.serverTimestamp(),
+          'unreadCount': 0,
+          'otherUserId': widget.otherUserId,
+          'otherUserName': widget.otherUserName,
+        });
+
+        // Créer un message de bienvenue dans la sous-collection messages
+        await _firestore
+            .collection('chats')
+            .doc(widget.chatId)
+            .collection('messages')
+            .add({
+          'senderId': 'system',
+          'senderName': 'Système',
+          'content': 'Conversation démarrée',
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de la création du chat: $e');
+    }
   }
 
   @override
   void dispose() {
-    _chatController.dispose();
+    _messageController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -178,26 +184,60 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text("Discussion avec ${widget.otherUserName}"),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              reverse: true,
-              itemCount: _chatController.messages.length,
-              itemBuilder: (context, index) {
-                final message = _chatController.messages.reversed.toList()[index];
-                return _MessageBubble(message: message);
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _messagesStream,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Erreur: ${snapshot.error}'));
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final messages = snapshot.data!.docs;
+
+                if (messages.isEmpty) {
+                  return const Center(
+                    child: Text('Aucun message pour le moment'),
+                  );
+                }
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  reverse: true,
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final messageDoc = messages[index];
+                    final messageData = messageDoc.data() as Map<String, dynamic>;
+
+                    // Créer un objet ChatMessage à partir des données Firestore
+                    final message = ChatMessage(
+                      senderId: messageData['senderId'] ?? '',
+                      senderName: messageData['senderName'] ?? 'Inconnu',
+                      content: messageData['content'] ?? '',
+                      timestamp: (messageData['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+                    );
+
+                    final isMe = message.senderId == _auth.currentUser?.uid;
+
+                    return _MessageBubble(
+                      message: message,
+                      isMe: isMe,
+                    );
+                  },
+                );
               },
             ),
           ),
           _MessageInputField(
-            controller: _chatController.messageController,
+            controller: _messageController,
             onSend: _sendMessage,
+            isSending: _isSending,
           ),
         ],
       ),
@@ -205,45 +245,53 @@ class _ChatPageState extends State<ChatPage> {
   }
 }
 
-// 6. Widgets pour les bulles de message et champ de saisie (inchangés)
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
+  final bool isMe;
 
-  const _MessageBubble({required this.message});
+  const _MessageBubble({
+    required this.message,
+    required this.isMe,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment: message.isMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
         margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
         decoration: BoxDecoration(
-          color: message.isMe
+          color: isMe
               ? Theme.of(context).colorScheme.primary
               : Colors.grey[300],
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
-            bottomLeft: message.isMe ? const Radius.circular(16) : const Radius.circular(0),
-            bottomRight: message.isMe ? const Radius.circular(0) : const Radius.circular(16),
+            bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(0),
+            bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(16),
           ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!message.isMe)
+            if (!isMe && message.senderId != 'system')
               Text(
-                message.senderId,
+                message.senderName,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.secondary,
+                  fontSize: 12,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             Text(
               message.content,
               style: TextStyle(
-                color: message.isMe ? Colors.white : Colors.black,
+                color: isMe ? Colors.white : Colors.black,
               ),
             ),
             const SizedBox(height: 4),
@@ -251,7 +299,7 @@ class _MessageBubble extends StatelessWidget {
               message.formattedTime,
               style: TextStyle(
                 fontSize: 10,
-                color: message.isMe ? Colors.white70 : Colors.grey[600],
+                color: isMe ? Colors.white70 : Colors.grey[600],
               ),
             ),
           ],
@@ -264,10 +312,12 @@ class _MessageBubble extends StatelessWidget {
 class _MessageInputField extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onSend;
+  final bool isSending;
 
   const _MessageInputField({
     required this.controller,
     required this.onSend,
+    required this.isSending,
   });
 
   @override
@@ -279,6 +329,8 @@ class _MessageInputField extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              minLines: 1,
+              maxLines: 3,
               decoration: InputDecoration(
                 hintText: "Écrire un message...",
                 border: OutlineInputBorder(
@@ -292,9 +344,16 @@ class _MessageInputField extends StatelessWidget {
               onSubmitted: (_) => onSend(),
             ),
           ),
+          const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.send),
-            onPressed: onSend,
+            icon: isSending
+                ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : const Icon(Icons.send),
+            onPressed: isSending ? null : onSend,
           ),
         ],
       ),

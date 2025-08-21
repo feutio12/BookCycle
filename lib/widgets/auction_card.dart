@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:bookcycle/models/auction.dart';
 
-class AuctionCard extends StatelessWidget {
-  final Auction auction;
+class CarteEnchere extends StatelessWidget {
+  final Enchere enchere;
   final VoidCallback? onTap;
   final List<Widget>? actions;
 
-  const AuctionCard({
+  const CarteEnchere({
     super.key,
-    required this.auction,
+    required this.enchere,
     this.onTap,
     this.actions,
   });
@@ -16,6 +16,7 @@ class AuctionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final couleurPrincipale = theme.colorScheme.primary;
 
     return Card(
       elevation: 2,
@@ -36,12 +37,10 @@ class AuctionCard extends StatelessWidget {
                 children: [
                   _buildImage(theme),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildAuctionInfo(theme),
-                  ),
+                  Expanded(child: _buildEnchereInfo(theme, couleurPrincipale)),
                 ],
               ),
-              if (actions != null) ...[
+              if (actions != null && actions!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -62,10 +61,21 @@ class AuctionCard extends StatelessWidget {
         width: 80,
         height: 100,
         color: theme.colorScheme.surfaceVariant,
-        child: auction.imageUrl != null
+        child: enchere.imageUrl.isNotEmpty
             ? Image.network(
-          auction.imageUrl!,
+          enchere.imageUrl,
           fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                    loadingProgress.expectedTotalBytes!
+                    : null,
+              ),
+            );
+          },
           errorBuilder: (_, __, ___) => _buildPlaceholderIcon(),
         )
             : _buildPlaceholderIcon(),
@@ -75,16 +85,17 @@ class AuctionCard extends StatelessWidget {
 
   Widget _buildPlaceholderIcon() {
     return const Center(
-      child: Icon(Icons.menu_book_rounded, size: 40),
+      child: Icon(Icons.menu_book_rounded, size: 40, color: Colors.grey),
     );
   }
 
-  Widget _buildAuctionInfo(ThemeData theme) {
+  Widget _buildEnchereInfo(ThemeData theme, Color couleurPrincipale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Titre
         Text(
-          auction.title,
+          enchere.titre,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -92,64 +103,95 @@ class AuctionCard extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 4),
-        if (auction.description != null)
+
+        // Description
+        if (enchere.description.isNotEmpty)
           Text(
-            auction.description!,
+            enchere.description,
             style: theme.textTheme.bodySmall,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         const SizedBox(height: 8),
+
+        // Prix actuel
         Row(
           children: [
             Icon(
-              Icons.attach_money_rounded,
+              Icons.euro_rounded,
               size: 16,
-              color: theme.colorScheme.primary,
+              color: couleurPrincipale,
             ),
             const SizedBox(width: 4),
             Text(
-              '${auction.currentBid.toStringAsFixed(2)} €',
+              '${enchere.prixActuel.toStringAsFixed(2)} €',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
+                color: couleurPrincipale,
               ),
             ),
+            if (enchere.prixDepart != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                '(${enchere.prixDepart!.toStringAsFixed(2)} € départ)',
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
+
+        // Temps restant/Statut
         Row(
           children: [
             Icon(
-              auction.isActive ? Icons.timer_outlined : Icons.history,
+              enchere.estActive ? Icons.timer_outlined : Icons.history,
               size: 16,
-              color: auction.isActive
-                  ? Colors.orange
-                  : Colors.grey,
+              color: enchere.estActive ? Colors.orange : Colors.grey,
             ),
             const SizedBox(width: 4),
             Text(
-              auction.isActive ? auction.timeLeft : 'Terminée',
+              enchere.estActive ? enchere.tempsRestant : 'Terminée',
               style: TextStyle(
-                color: auction.isActive
-                    ? Colors.orange
-                    : Colors.grey,
+                color: enchere.estActive ? Colors.orange : Colors.grey,
               ),
             ),
           ],
         ),
-        if (auction.bidderCount != null) ...[
-          const SizedBox(height: 4),
+
+        // Nombre d'enchérisseurs
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 16,
+              color: Colors.grey[600],
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${enchere.nombreEncherisseurs} participant${enchere.nombreEncherisseurs > 1 ? 's' : ''}',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+
+        // État du livre
+        if (enchere.etatLivre.isNotEmpty) ...[
+          const SizedBox(height: 6),
           Row(
             children: [
               Icon(
-                Icons.people_outline,
+                Icons.star_outline,
                 size: 16,
                 color: Colors.grey[600],
               ),
               const SizedBox(width: 4),
               Text(
-                '${auction.bidderCount} participants',
+                enchere.etatLivre,
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 12,

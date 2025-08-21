@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:bookcycle/pages/pages%20rincipales/profilpage.dart';
 import 'package:bookcycle/pages/pages%20rincipales/chatpage.dart';
 import 'package:bookcycle/pages/pages%20rincipales/searchpage.dart';
+import '../models/chats.dart';
+import '../widgets/app_drawer.dart';
 import 'auth/loginpage.dart';
+import 'chats/chats_list_page.dart';
 import 'pages rincipales/Acceuilpage.dart';
 
 class Homepage extends StatelessWidget {
@@ -22,6 +25,7 @@ class Homepage extends StatelessWidget {
     );
   }
 }
+
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -31,7 +35,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 2; // Index par défaut sur Home
-  User? currentUser; // Add this to store the current user
+  User? currentUser;
 
   // Liste fictive de discussions
   final List<ChatDiscussion> discussions = [
@@ -49,28 +53,26 @@ class _MainScreenState extends State<MainScreen> {
       otherUserName: "Marie Martin",
       lastMessage: "Je suis intéressée par votre livre",
       lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
+      unreadCount: 0, // Ajout du paramètre manquant
     ),
   ];
 
   late final List<Widget> _screens;
 
-  get user => null;
-
   @override
   void initState() {
     super.initState();
 
-    // Initialize with empty screens first
+    // Initialiser avec des écrans vides d'abord
     _screens = [
       SearchPage(),
       DiscussionsListPage(discussions: discussions),
       const Acceuilpage(),
       AuctionPage(),
-      BookCycleApp(),
-      const Center(child: CircularProgressIndicator()), // Temporary placeholder
+      const ProfilePage(), // Utilisation correcte sans paramètre user
     ];
 
-    // Get the current user
+    // Obtenir l'utilisateur actuel
     _getCurrentUser();
   }
 
@@ -117,13 +119,13 @@ class _MainScreenState extends State<MainScreen> {
     if (user != null) {
       setState(() {
         currentUser = user;
-        // Update screens with the proper ProfilePage
+        // Mettre à jour les écrans avec le ProfilePage approprié
         _screens = [
           SearchPage(),
           DiscussionsListPage(discussions: discussions),
           const Acceuilpage(),
           AuctionPage(),
-          BookCycleApp(), // Now passing the required user parameter
+          const ProfilePage(), // Utilisation correcte sans paramètre user
         ];
       });
     }
@@ -132,6 +134,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
