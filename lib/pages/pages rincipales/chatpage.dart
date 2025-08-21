@@ -199,7 +199,27 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Discussion avec ${widget.otherUserName}"),
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: Colors.blue,
+              //backgroundImage: ,
+            ),
+            SizedBox(width: 12,),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("${widget.otherUserName}",style: Theme.of(context).textTheme.titleMedium,),
+                Text("En ligne",style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.green,fontWeight: FontWeight.w500),),
+              ],
+            )
+          ],
+        ),
+        actions: [
+          IconButton(onPressed: (){}, icon: Icon(Icons.videocam)),
+          IconButton(onPressed: (){}, icon: Icon(Icons.call)),
+          IconButton(onPressed: (){}, icon: Icon(Icons.more_vert)),
+        ],
       ),
       body: Column(
         children: [
@@ -339,41 +359,76 @@ class _MessageInputField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              minLines: 1,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: "Écrire un message...",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24.0),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 12.0,
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 8
+      ),
+      decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: Offset(0,-2)
+            )
+          ]
+      ),
+      child: SafeArea(
+          child: Row(
+            children: [
+              IconButton(onPressed: (){}, icon: Icon(Icons.add),),
+              IconButton(onPressed: (){}, icon: Icon(Icons.photo_camera),),
+              Expanded(
+                child: Container(
+                  constraints: BoxConstraints(
+                      maxHeight: 100
+                  ),
+                  child: TextField(
+                    controller: controller,
+                    //focusNode: focusNode,
+                    textCapitalization: TextCapitalization.sentences,
+                    minLines: 1,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                        hintText: "Tapez un message…",
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surfaceVariant,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12
+                        )
+                    ),
+                  ),
                 ),
               ),
-              onSubmitted: (_) => onSend(),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: isSending
-                ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-                : const Icon(Icons.send),
-            onPressed: isSending ? null : onSend,
-          ),
-        ],
+              SizedBox(width: 8,),
+              GestureDetector(
+                onTap: onSend,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    //color: Theme.of(context).colorScheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: isSending
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2,color: Colors.blue,),
+                  )
+                      : const Icon(Icons.send,),
+                ),
+              )
+            ],
+          )
       ),
     );
   }
+
 }
