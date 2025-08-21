@@ -357,13 +357,17 @@ class _AcceuilpageState extends State<Acceuilpage> {
           elevation: 4,
           actions: [
             IconButton(
+              icon: const Icon(Icons.add_comment_rounded, size: 28),
+              onPressed: _navigateToAddBook,
+              tooltip: 'Ajouter un livre',
+            ),
+            IconButton(
               icon: const Icon(Icons.refresh, size: 28),
               onPressed: _fetchBooks,
               tooltip: 'Actualiser',
             ),
           ],
         ),
-
         body: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -375,7 +379,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
               ],
             ),
           ),
-
           child: _isLoading
               ? Center(
             child: Column(
@@ -472,7 +475,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
             textTheme: Theme.of(context).textTheme,
             currentUserId: user?.uid ?? '',
           ),
-
         ),
       ),
     );

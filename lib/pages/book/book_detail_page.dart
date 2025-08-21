@@ -36,7 +36,16 @@ class BookDetailPage extends StatelessWidget {
       return;
     }
 
+    // Vérifier si l'utilisateur essaie de se contacter lui-même
+    if (currentUser.uid == publisherId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vous ne pouvez pas vous contacter vous-même')),
+      );
+      return;
+    }
+
     final chatId = _generateChatId(currentUser.uid, publisherId);
+    final initialMessage = 'Bonjour, je suis intéressé par votre livre "$bookTitle"';
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -44,7 +53,7 @@ class BookDetailPage extends StatelessWidget {
           chatId: chatId,
           otherUserId: publisherId,
           otherUserName: publisherName,
-          initialMessage: 'Bonjour, je suis intéressé par votre livre "$bookTitle"',
+          initialMessage: initialMessage,
         ),
       ),
     );

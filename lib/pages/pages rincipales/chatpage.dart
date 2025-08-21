@@ -7,12 +7,14 @@ class ChatPage extends StatefulWidget {
   final String chatId;
   final String otherUserId;
   final String otherUserName;
+  final String? initialMessage;
 
   const ChatPage({
     super.key,
     required this.chatId,
     required this.otherUserId,
-    required this.otherUserName, required String initialMessage,
+    required this.otherUserName,
+    this.initialMessage,
   });
 
   @override
@@ -24,24 +26,44 @@ class _ChatPageState extends State<ChatPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  late Stream<QuerySnapshot> _messagesStream;
+  Stream<QuerySnapshot>? _messagesStream;
   bool _isSending = false;
+  bool _isInitializing = true;
 
   @override
   void initState() {
     super.initState();
     _initializeChat();
+    _prefillInitialMessage();
   }
 
   Future<void> _initializeChat() async {
-    await _createChatIfNeeded();
-    _messagesStream = _firestore
-        .collection('chats')
-        .doc(widget.chatId)
-        .collection('messages')
-        .orderBy('timestamp', descending: true)
-        .snapshots();
-    _markMessagesAsRead();
+    try {
+      await _createChatIfNeeded();
+      setState(() {
+        _messagesStream = _firestore
+            .collection('chats')
+            .doc(widget.chatId)
+            .collection('messages')
+            .orderBy('timestamp', descending: true)
+            .snapshots();
+        _isInitializing = false;
+      });
+      _markMessagesAsRead();
+    } catch (e) {
+      debugPrint('Erreur lors de l\'initialisation du chat: $e');
+      setState(() {
+        _isInitializing = false;
+      });
+    }
+  }
+
+  void _prefillInitialMessage() {
+    if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _messageController.text = widget.initialMessage!;
+      });
+    }
   }
 
   Future<void> _markMessagesAsRead() async {
@@ -92,7 +114,6 @@ class _ChatPageState extends State<ChatPage> {
         return;
       }
 
-      // Créer le message
       final messageData = {
         'senderId': currentUser.uid,
         'senderName': currentUser.displayName ?? 'Anonyme',
@@ -100,14 +121,12 @@ class _ChatPageState extends State<ChatPage> {
         'timestamp': FieldValue.serverTimestamp(),
       };
 
-      // Ajouter le message à la sous-collection messages
       await _firestore
           .collection('chats')
           .doc(widget.chatId)
           .collection('messages')
           .add(messageData);
 
-      // Mettre à jour les métadonnées du chat
       await _firestore.collection('chats').doc(widget.chatId).update({
         'lastMessage': content,
         'lastMessageTime': FieldValue.serverTimestamp(),
@@ -116,7 +135,6 @@ class _ChatPageState extends State<ChatPage> {
 
       _messageController.clear();
 
-      // Défiler vers le bas après l'envoi
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
@@ -145,7 +163,6 @@ class _ChatPageState extends State<ChatPage> {
         final currentUser = _auth.currentUser;
         if (currentUser == null) return;
 
-        // Créer le document chat avec la structure initiale
         await _firestore.collection('chats').doc(widget.chatId).set({
           'participants': [currentUser.uid, widget.otherUserId],
           'lastMessage': '',
@@ -155,7 +172,6 @@ class _ChatPageState extends State<ChatPage> {
           'otherUserName': widget.otherUserName,
         });
 
-        // Créer un message de bienvenue dans la sous-collection messages
         await _firestore
             .collection('chats')
             .doc(widget.chatId)
@@ -188,7 +204,9 @@ class _ChatPageState extends State<ChatPage> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
+            child: _isInitializing
+                ? const Center(child: CircularProgressIndicator())
+                : StreamBuilder<QuerySnapshot>(
               stream: _messagesStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -215,7 +233,6 @@ class _ChatPageState extends State<ChatPage> {
                     final messageDoc = messages[index];
                     final messageData = messageDoc.data() as Map<String, dynamic>;
 
-                    // Créer un objet ChatMessage à partir des données Firestore
                     final message = ChatMessage(
                       senderId: messageData['senderId'] ?? '',
                       senderName: messageData['senderName'] ?? 'Inconnu',
