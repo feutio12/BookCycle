@@ -15,12 +15,25 @@ class ChatService {
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
 
-      final chatDoc = await _firestore.collection('chats').doc(chatId).get();
-      if (chatDoc.exists) {
-        await _firestore.collection('chats').doc(chatId).update({
-          'unreadCount': 0,
-        });
+      // Update unread count in chat document
+      await _firestore.collection('chats').doc(chatId).update({
+        'unreadCount': 0,
+      });
+
+      // Mark all unread messages from other user as read
+      final messages = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('senderId', isNotEqualTo: currentUser.uid)
+          .where('read', isEqualTo: false)
+          .get();
+
+      final batch = _firestore.batch();
+      for (var doc in messages.docs) {
+        batch.update(doc.reference, {'read': true});
       }
+      await batch.commit();
     } catch (e) {
       print('Erreur lors du marquage des messages comme lus: $e');
     }
@@ -44,6 +57,7 @@ class ChatService {
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
 
+      // Create message data
       final messageData = {
         'senderId': currentUser.uid,
         'senderName': currentUser.displayName ?? 'Anonyme',
@@ -52,12 +66,14 @@ class ChatService {
         'read': false,
       };
 
+      // Add message to subcollection
       await _firestore
           .collection('chats')
           .doc(chatId)
           .collection('messages')
           .add(messageData);
 
+      // Update chat document with latest message info
       await _firestore.collection('chats').doc(chatId).update({
         'lastMessage': content,
         'lastMessageTime': FieldValue.serverTimestamp(),
@@ -79,10 +95,12 @@ class ChatService {
   }) async {
     try {
       final chatDoc = await _firestore.collection('chats').doc(chatId).get();
+
       if (!chatDoc.exists) {
         final currentUser = _auth.currentUser;
         if (currentUser == null) return;
 
+        // Create the chat document
         await _firestore.collection('chats').doc(chatId).set({
           'participants': [currentUser.uid, otherUserId],
           'lastMessage': '',
@@ -93,6 +111,7 @@ class ChatService {
           'otherUserName': otherUserName,
         });
 
+        // Add a system message to the messages subcollection
         await _firestore
             .collection('chats')
             .doc(chatId)
@@ -131,5 +150,34 @@ class ChatService {
         .collection('messages')
         .orderBy('timestamp', descending: true)
         .snapshots();
+  }
+
+  // Get a specific chat document
+  static Future<DocumentSnapshot> getChatDocument(String chatId) {
+    return _firestore.collection('chats').doc(chatId).get();
+  }
+
+  // Delete a chat and all its messages
+  static Future<void> deleteChat(String chatId) async {
+    try {
+      // First delete all messages in the subcollection
+      final messages = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .get();
+
+      final batch = _firestore.batch();
+      for (var doc in messages.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      // Then delete the chat document
+      await _firestore.collection('chats').doc(chatId).delete();
+    } catch (e) {
+      print('Erreur lors de la suppression du chat: $e');
+      rethrow;
+    }
   }
 }

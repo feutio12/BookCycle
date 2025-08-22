@@ -84,10 +84,12 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
             final data = doc.data() as Map<String, dynamic>;
             return ChatDiscussion(
               chatId: doc.id,
+              participants: List<String>.from(data['participants'] ?? []),
               otherUserId: data['otherUserId'] ?? '',
               otherUserName: ChatUtils.getChatTitle(data, currentUser.uid),
               lastMessage: data['lastMessage'] ?? '',
               lastMessageTime: (data['lastMessageTime'] as Timestamp).toDate(),
+              lastMessageSenderId: data['lastMessageSenderId'] ?? '',
               unreadCount: data['unreadCount'] ?? 0,
             );
           }).toList();

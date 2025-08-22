@@ -46,6 +46,8 @@ class _MainScreenState extends State<MainScreen> {
       lastMessage: "Bonjour, le livre est-il disponible?",
       lastMessageTime: DateTime.now().subtract(const Duration(minutes: 5)),
       unreadCount: 2,
+      participants: [],
+      lastMessageSenderId: '',
     ),
     ChatDiscussion(
       chatId: "2",
@@ -53,7 +55,9 @@ class _MainScreenState extends State<MainScreen> {
       otherUserName: "Marie Martin",
       lastMessage: "Je suis intéressée par votre livre",
       lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
-      unreadCount: 0, // Ajout du paramètre manquant
+      unreadCount: 0,
+      participants: [],
+      lastMessageSenderId: '', // Ajout du paramètre manquant
     ),
   ];
 

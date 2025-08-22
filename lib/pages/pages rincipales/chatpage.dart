@@ -149,7 +149,12 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             CircleAvatar(
               backgroundColor: Colors.blue,
-              // backgroundImage: ,
+              child: Text(
+                widget.otherUserName.isNotEmpty
+                    ? widget.otherUserName[0].toUpperCase()
+                    : '?',
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
             const SizedBox(width: 12),
             Column(

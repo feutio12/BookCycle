@@ -17,6 +17,31 @@ class ChatMessage {
     required this.isRead,
   });
 
+  // Convertir en Map pour Firestore
+  Map<String, dynamic> toMap() {
+    return {
+      'senderId': senderId,
+      'senderName': senderName,
+      'content': content,
+      'timestamp': timestamp,
+      'read': isRead,
+    };
+  }
+
+  // Créer à partir d'un document Firestore
+  factory ChatMessage.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return ChatMessage(
+      id: doc.id,
+      senderId: data['senderId'] ?? '',
+      senderName: data['senderName'] ?? 'Utilisateur inconnu',
+      content: data['content'] ?? '',
+      timestamp: (data['timestamp'] as Timestamp).toDate(),
+      isRead: data['read'] ?? false,
+    );
+  }
+
+  // Obtenir l'heure formatée pour l'affichage
   String get formattedTime {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -34,29 +59,49 @@ class ChatMessage {
 
 class ChatDiscussion {
   final String chatId;
+  final List<String> participants;
   final String otherUserId;
   final String otherUserName;
   final String lastMessage;
   final DateTime lastMessageTime;
+  final String lastMessageSenderId;
   final int unreadCount;
 
   ChatDiscussion({
     required this.chatId,
+    required this.participants,
     required this.otherUserId,
     required this.otherUserName,
     required this.lastMessage,
     required this.lastMessageTime,
+    required this.lastMessageSenderId,
     required this.unreadCount,
   });
 
+  // Convertir en Map pour Firestore
+  Map<String, dynamic> toMap() {
+    return {
+      'participants': participants,
+      'otherUserId': otherUserId,
+      'otherUserName': otherUserName,
+      'lastMessage': lastMessage,
+      'lastMessageTime': lastMessageTime,
+      'lastMessageSenderId': lastMessageSenderId,
+      'unreadCount': unreadCount,
+    };
+  }
+
+  // Créer à partir d'un document Firestore
   factory ChatDiscussion.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return ChatDiscussion(
       chatId: doc.id,
+      participants: List<String>.from(data['participants'] ?? []),
       otherUserId: data['otherUserId'] ?? '',
       otherUserName: data['otherUserName'] ?? 'Utilisateur inconnu',
       lastMessage: data['lastMessage'] ?? '',
       lastMessageTime: (data['lastMessageTime'] as Timestamp).toDate(),
+      lastMessageSenderId: data['lastMessageSenderId'] ?? '',
       unreadCount: data['unreadCount'] ?? 0,
     );
   }

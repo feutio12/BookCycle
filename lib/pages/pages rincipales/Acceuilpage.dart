@@ -1,12 +1,12 @@
+import 'package:flutter/material.dart';
 import 'package:bookcycle/composants/books_page.dart';
 import 'package:bookcycle/pages/auth/loginpage.dart';
 import 'package:bookcycle/pages/book/add_book_page.dart';
 import 'package:bookcycle/pages/pages%20rincipales/chatpage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../book/book_detail_page.dart';
 
 class Acceuilpage extends StatefulWidget {
@@ -37,6 +37,9 @@ class _AcceuilpageState extends State<Acceuilpage> {
   bool _isLoading = true;
   bool _hasPostedAsGuest = false;
   bool _isFirstTime = true;
+  final ScrollController _scrollController = ScrollController();
+  bool _showSearchBar = false;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -44,6 +47,22 @@ class _AcceuilpageState extends State<Acceuilpage> {
     _checkFirstTime();
     _checkGuestPostingStatus();
     _fetchBooks();
+    _scrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    if (_scrollController.offset > 100 && !_showSearchBar) {
+      setState(() => _showSearchBar = true);
+    } else if (_scrollController.offset <= 100 && _showSearchBar) {
+      setState(() => _showSearchBar = false);
+    }
   }
 
   Future<void> _checkFirstTime() async {
@@ -128,7 +147,27 @@ class _AcceuilpageState extends State<Acceuilpage> {
   void _filterBooks(String filter) {
     setState(() {
       _selectedFilter = filter;
-      _filteredBooks = _applyFilter(_allBooks, filter);
+      if (_searchController.text.isNotEmpty) {
+        _filteredBooks = _applyFilter(_allBooks, filter)
+            .where((book) => book['title'].toLowerCase().contains(_searchController.text.toLowerCase()) ||
+            book['author'].toLowerCase().contains(_searchController.text.toLowerCase()))
+            .toList();
+      } else {
+        _filteredBooks = _applyFilter(_allBooks, filter);
+      }
+    });
+  }
+
+  void _searchBooks(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredBooks = _applyFilter(_allBooks, _selectedFilter);
+      } else {
+        _filteredBooks = _applyFilter(_allBooks, _selectedFilter)
+            .where((book) => book['title'].toLowerCase().contains(query.toLowerCase()) ||
+            book['author'].toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
     });
   }
 
@@ -280,190 +319,143 @@ class _AcceuilpageState extends State<Acceuilpage> {
     );
   }
 
+  String _getWelcomeMessage() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Une belle journée de lecture commence!';
+    } else if (hour < 18) {
+      return 'Profitez de votre après-midi littéraire!';
+    } else {
+      return 'Bonne soirée de découvertes livresques!';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
+    final userName = user?.displayName ?? '';
+    final screenWidth = MediaQuery.of(context).size.width;
 
-    return Theme(
-      data: ThemeData(
-        colorScheme: const ColorScheme.light(
-          primary: Color(0xFF1976D2), // Bleu principal
-          surface: Colors.white,
-          onPrimary: Colors.white,
-          onSecondary: Colors.white,
-          onSurface: Color(0xFF212121),
-          onBackground: Color(0xFF212121),
-          brightness: Brightness.light,
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1976D2),
-          elevation: 4,
-          iconTheme: IconThemeData(color: Colors.white),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1976D2),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
-            ),
-          ),
-        ),
-        textTheme: const TextTheme(
-          titleLarge: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-          headlineSmall: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1976D2),
-          ),
-          bodyLarge: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF424242),
-          ),
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        appBar: AppBar(
-          title: RichText(
-            text: TextSpan(
-              text: 'BIENVENU ',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+        backgroundColor: const Color(0xFFF5F9FF),
+        body: NestedScrollView(
+          controller: _scrollController,
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverAppBar(
+                expandedHeight: 180.0,
+                floating: false,
+                pinned: true,
+                snap: false,
+                backgroundColor: const Color(0xFF1976D2),
+                elevation: 4,
+                flexibleSpace: FlexibleSpaceBar(
+                  collapseMode: CollapseMode.pin,
+                  background: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF1976D2),
+                          Color(0xFF42A5F5),
+                        ],
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 20, top: 70, right: 20, bottom: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Bienvenue${userName.isNotEmpty ? ', $userName' : ''}',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _getWelcomeMessage(),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(60),
+                  child: Container(
+                    height: 60,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: _searchBooks,
+                              decoration: InputDecoration(
+                                hintText: 'Rechercher un livre ou un auteur...',
+                                hintStyle: TextStyle(color: Colors.grey[600]),
+                                prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1976D2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.filter_list, color: Colors.white),
+                            onPressed: () {
+                              showModalBottomSheet(
+                                context: context,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                                ),
+                                builder: (context) => _buildFilterSheet(),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              children: [
-                TextSpan(
-                  text: user?.displayName ?? '',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFC8E6C9), // Vert clair pour le nom
-                  ),
-                ),
-              ],
-            ),
-          ),
-          backgroundColor: const Color(0xFF1976D2),
-          elevation: 4,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.add_comment_rounded, size: 28),
-              onPressed: _navigateToAddBook,
-              tooltip: 'Ajouter un livre',
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh, size: 28),
-              onPressed: _fetchBooks,
-              tooltip: 'Actualiser',
-            ),
-          ],
-        ),
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFF5F9FF),
-                Color(0xFFE8F5E9),
-              ],
-            ),
-          ),
-          child: _isLoading
-              ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
-                  strokeWidth: 4,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Chargement des livres...',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ],
-            ),
-          )
+            ];
+          },
+          body: _isLoading
+              ? _buildLoadingIndicator()
               : _filteredBooks.isEmpty
-              ? Center(
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.menu_book,
-                    size: 80,
-                    color: const Color(0xFF1976D2).withOpacity(0.5),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Aucun livre trouvé',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1976D2),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    _selectedFilter == 'Tous'
-                        ? 'Soyez le premier à ajouter un livre!'
-                        : 'Aucun livre dans la catégorie "$_selectedFilter"',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF757575),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: _navigateToAddBook,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Ajouter un livre'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1976D2),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
+              ? _buildEmptyState()
               : BooksPage(
             books: _filteredBooks,
             onLikePressed: _toggleLike,
@@ -475,6 +467,164 @@ class _AcceuilpageState extends State<Acceuilpage> {
             textTheme: Theme.of(context).textTheme,
             currentUserId: user?.uid ?? '',
           ),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _navigateToAddBook,
+          backgroundColor: const Color(0xFF1976D2),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: const Icon(Icons.add, size: 28),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterSheet() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Filtrer par catégorie',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _filters.map((filter) {
+              final isSelected = filter == _selectedFilter;
+              return FilterChip(
+                label: Text(filter),
+                selected: isSelected,
+                onSelected: (selected) {
+                  Navigator.pop(context);
+                  _filterBooks(filter);
+                },
+                backgroundColor: Colors.grey[100],
+                selectedColor: const Color(0xFF1976D2).withOpacity(0.2),
+                labelStyle: TextStyle(
+                  color: isSelected ? const Color(0xFF1976D2) : Colors.grey[700],
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(
+                    color: isSelected ? const Color(0xFF1976D2) : Colors.grey[300]!,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
+            strokeWidth: 4,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Chargement des livres...',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[700],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        margin: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.menu_book,
+              size: 80,
+              color: const Color(0xFF1976D2).withOpacity(0.5),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Aucun livre trouvé',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1976D2),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _selectedFilter == 'Tous'
+                  ? 'Soyez le premier à ajouter un livre!'
+                  : 'Aucun livre dans la catégorie "$_selectedFilter"',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Color(0xFF757575),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _navigateToAddBook,
+              icon: const Icon(Icons.add),
+              label: const Text('Ajouter un livre'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1976D2),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
