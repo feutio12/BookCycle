@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide SearchBar;
 import 'package:bookcycle/composants/books_page.dart';
 import 'package:bookcycle/pages/auth/loginpage.dart';
 import 'package:bookcycle/pages/book/add_book_page.dart';
@@ -8,6 +8,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../book/book_detail_page.dart';
+import '../book/book_filter.dart';
+import '../book/book_list.dart';
 
 class Acceuilpage extends StatefulWidget {
   const Acceuilpage({super.key});
@@ -91,7 +93,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
         final userId = data['userId'] ?? '';
         String publisherName = 'Utilisateur inconnu';
 
-        // Récupérer le nom du publicateur depuis Firestore
         if (userId.isNotEmpty) {
           try {
             final userDoc = await _firestore.collection('users').doc(userId).get();
@@ -125,7 +126,7 @@ class _AcceuilpageState extends State<Acceuilpage> {
           'condition': data['condition'] ?? 'Bon état',
           'type': data['type'] ?? 'Échange',
           'location': data['location'] ?? 'Non spécifié',
-          'publisherName': publisherName, // Ajout du nom du publicateur
+          'publisherName': publisherName,
         };
       }));
 
@@ -319,22 +320,10 @@ class _AcceuilpageState extends State<Acceuilpage> {
     );
   }
 
-  String _getWelcomeMessage() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Une belle journée de lecture commence!';
-    } else if (hour < 18) {
-      return 'Profitez de votre après-midi littéraire!';
-    } else {
-      return 'Bonne soirée de découvertes livresques!';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
-    final userName = user?.displayName ?? '';
-    final screenWidth = MediaQuery.of(context).size.width;
+    final name = user?.displayName ?? '';
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light.copyWith(
@@ -356,107 +345,32 @@ class _AcceuilpageState extends State<Acceuilpage> {
                 elevation: 4,
                 flexibleSpace: FlexibleSpaceBar(
                   collapseMode: CollapseMode.pin,
-                  background: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF1976D2),
-                          Color(0xFF42A5F5),
-                        ],
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 20, top: 70, right: 20, bottom: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Bienvenue${userName.isNotEmpty ? ', $userName' : ''}',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _getWelcomeMessage(),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  background: Header(name: name),
                 ),
                 bottom: PreferredSize(
                   preferredSize: const Size.fromHeight(60),
-                  child: Container(
-                    height: 60,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: _searchBooks,
-                              decoration: InputDecoration(
-                                hintText: 'Rechercher un livre ou un auteur...',
-                                hintStyle: TextStyle(color: Colors.grey[600]),
-                                prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                            ),
-                          ),
+                  child: SearchBar(
+                    controller: _searchController,
+                    onChanged: _searchBooks,
+                    onFilterPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1976D2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.filter_list, color: Colors.white),
-                            onPressed: () {
-                              showModalBottomSheet(
-                                context: context,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                                ),
-                                builder: (context) => _buildFilterSheet(),
-                              );
-                            },
-                          ),
+                        builder: (context) => BookFilter(
+                          filters: _filters,
+                          selectedFilter: _selectedFilter,
+                          onFilterChanged: _filterBooks,
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
               ),
             ];
           },
-          body: _isLoading
-              ? _buildLoadingIndicator()
-              : _filteredBooks.isEmpty
-              ? _buildEmptyState()
-              : BooksPage(
+          body: BookList(
             books: _filteredBooks,
             onLikePressed: _toggleLike,
             onBookPressed: _navigateToBookDetails,
@@ -466,6 +380,8 @@ class _AcceuilpageState extends State<Acceuilpage> {
             colorScheme: Theme.of(context).colorScheme,
             textTheme: Theme.of(context).textTheme,
             currentUserId: user?.uid ?? '',
+            isLoading: _isLoading,
+            scrollController: _scrollController,
           ),
         ),
         floatingActionButton: FloatingActionButton(
@@ -474,157 +390,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: const Icon(Icons.add, size: 28),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterSheet() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Filtrer par catégorie',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _filters.map((filter) {
-              final isSelected = filter == _selectedFilter;
-              return FilterChip(
-                label: Text(filter),
-                selected: isSelected,
-                onSelected: (selected) {
-                  Navigator.pop(context);
-                  _filterBooks(filter);
-                },
-                backgroundColor: Colors.grey[100],
-                selectedColor: const Color(0xFF1976D2).withOpacity(0.2),
-                labelStyle: TextStyle(
-                  color: isSelected ? const Color(0xFF1976D2) : Colors.grey[700],
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(
-                    color: isSelected ? const Color(0xFF1976D2) : Colors.grey[300]!,
-                    width: isSelected ? 1.5 : 1,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingIndicator() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
-            strokeWidth: 4,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Chargement des livres...',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[700],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        margin: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.menu_book,
-              size: 80,
-              color: const Color(0xFF1976D2).withOpacity(0.5),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Aucun livre trouvé',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1976D2),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              _selectedFilter == 'Tous'
-                  ? 'Soyez le premier à ajouter un livre!'
-                  : 'Aucun livre dans la catégorie "$_selectedFilter"',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Color(0xFF757575),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _navigateToAddBook,
-              icon: const Icon(Icons.add),
-              label: const Text('Ajouter un livre'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1976D2),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
