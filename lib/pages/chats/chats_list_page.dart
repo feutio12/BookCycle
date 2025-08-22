@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../composants/common_components.dart';
 import '../../models/chats.dart';
 import '../pages rincipales/chatpage.dart';
+import 'chat_service.dart';
+import 'chat_utils.dart';
 
 class DiscussionsListPage extends StatefulWidget {
   const DiscussionsListPage({super.key, required List<ChatDiscussion> discussions});
@@ -14,7 +16,6 @@ class DiscussionsListPage extends StatefulWidget {
 }
 
 class _DiscussionsListPageState extends State<DiscussionsListPage> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   late Stream<QuerySnapshot> _discussionsStream;
 
@@ -28,11 +29,7 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
     final currentUser = _auth.currentUser;
     if (currentUser == null) return;
 
-    _discussionsStream = _firestore
-        .collection('chats')
-        .where('participants', arrayContains: currentUser.uid)
-        .orderBy('lastMessageTime', descending: true)
-        .snapshots();
+    _discussionsStream = ChatService.getChatsStream(currentUser.uid);
   }
 
   @override
@@ -84,7 +81,15 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
           }
 
           final discussions = snapshot.data!.docs.map((doc) {
-            return ChatDiscussion.fromFirestore(doc);
+            final data = doc.data() as Map<String, dynamic>;
+            return ChatDiscussion(
+              chatId: doc.id,
+              otherUserId: data['otherUserId'] ?? '',
+              otherUserName: ChatUtils.getChatTitle(data, currentUser.uid),
+              lastMessage: data['lastMessage'] ?? '',
+              lastMessageTime: (data['lastMessageTime'] as Timestamp).toDate(),
+              unreadCount: data['unreadCount'] ?? 0,
+            );
           }).toList();
 
           return ListView.builder(
@@ -100,11 +105,11 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
                       builder: (context) => ChatPage(
                         chatId: discussion.chatId,
                         otherUserId: discussion.otherUserId,
-                        otherUserName: discussion.otherUserName, initialMessage: '',
+                        otherUserName: discussion.otherUserName,
+                        initialMessage: '',
                       ),
                     ),
                   ).then((_) {
-                    // Rafraîchir la liste après retour de la page de chat
                     setState(() {
                       _loadDiscussions();
                     });
@@ -162,7 +167,7 @@ class _DiscussionTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            _formatMessageTime(discussion.lastMessageTime),
+            ChatUtils.formatMessageTime(discussion.lastMessageTime),
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey[600],
@@ -191,23 +196,5 @@ class _DiscussionTile extends StatelessWidget {
       ),
       onTap: onTap,
     );
-  }
-
-  String _formatMessageTime(DateTime timestamp) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final messageDay = DateTime(
-        timestamp.year,
-        timestamp.month,
-        timestamp.day
-    );
-
-    if (messageDay == today) {
-      return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
-    } else if (messageDay == today.subtract(const Duration(days: 1))) {
-      return 'Hier';
-    } else {
-      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
-    }
   }
 }
