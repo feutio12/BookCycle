@@ -84,6 +84,12 @@ class Enchere {
 
   bool get estTerminee => dateFin.isBefore(DateTime.now());
 
+  get createurNom => null;
+
+  get nombrePages => null;
+
+  get categorie => null;
+
   void mettreAJourOffre(double nouveauPrix, String encherisseurId) {
     prixActuel = nouveauPrix;
     nombreEncherisseurs++;

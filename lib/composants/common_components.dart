@@ -15,6 +15,16 @@ class AppColors {
   static const Color errorRed = Color(0xFFD32F2F);
   static const Color warningOrange = Color(0xFFF57C00);
   static const Color successGreen = Color(0xFF2E7D32);
+  static const Color primaryDarkBlue = Color(0xFF1976D2);
+  static const Color primaryLightBlue = Color(0xFFBBDEFB);
+  static const Color accentLightGreen = Color(0xFFC8E6C9);
+  static const Color backgroundLight = Color(0xFFF5F9FF);
+  static const Color cardBackground = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF263238);
+  static const Color textSecondary = Color(0xFF78909C);
+  static const Color success = Color(0xFF66BB6A);
+  static const Color warning = Color(0xFFFFA726);
+  static const Color error = Color(0xFFEF5350);
 }
 
 // Styles de texte communs

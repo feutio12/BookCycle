@@ -7,7 +7,7 @@ import '../../composants/auction_components.dart';
 import '../../composants/common_components.dart';
 import '../../composants/common_utils.dart';
 import '../auth/loginpage.dart';
-import '../book/add_enchere.dart';
+import '../enchere/add_enchere.dart';
 
 class AuctionPage extends StatefulWidget {
   const AuctionPage({super.key});

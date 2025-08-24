@@ -36,7 +36,7 @@ class Header extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Bienvenue${name.isNotEmpty ? ', $name' : ' Fre'}',
+              'Bienvenue${name.isNotEmpty ? ', $name' : ''}',
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,

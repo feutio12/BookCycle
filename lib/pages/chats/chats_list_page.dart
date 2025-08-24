@@ -7,9 +7,15 @@ import '../../models/chats.dart';
 import '../pages rincipales/chatpage.dart';
 import 'chat_service.dart';
 import 'chat_utils.dart';
+import 'new_chat_page.dart';
+
+// Définition des couleurs si absent dans common_components
+class AppColors {
+  static const Color primaryBlue = Color(0xFF1976D2); // Couleur WhatsApp
+}
 
 class DiscussionsListPage extends StatefulWidget {
-  const DiscussionsListPage({super.key, required List<ChatDiscussion> discussions});
+  const DiscussionsListPage({super.key, required List<ChatDiscussion> discussions}); // Retirer le paramètre inutile
 
   @override
   State<DiscussionsListPage> createState() => _DiscussionsListPageState();
@@ -121,6 +127,16 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const NewChatPage()),
+          );
+        },
+        backgroundColor: AppColors.primaryBlue,
+        child: const Icon(Icons.chat, color: Colors.white),
       ),
     );
   }

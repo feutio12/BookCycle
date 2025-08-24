@@ -10,7 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../pages/animation.dart';
 import '../pages/auth/loginpage.dart';
 import '../pages/auth/registerpage.dart';
-import '../pages/book/add_enchere.dart';
+import '../pages/enchere/add_enchere.dart';
 import '../pages/chats/chats_list_page.dart';
 import '../pages/pages rincipales/profilpage.dart';
 import '../pages/pages rincipales/chatpage.dart'; // Import ajouté
