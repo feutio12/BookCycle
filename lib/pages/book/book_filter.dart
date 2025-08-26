@@ -15,10 +15,10 @@ class BookFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -26,7 +26,7 @@ class BookFilter extends StatelessWidget {
         children: [
           Center(
             child: Container(
-              width: 40,
+              width: 60,
               height: 5,
               decoration: BoxDecoration(
                 color: Colors.grey[300],
@@ -34,41 +34,73 @@ class BookFilter extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'Filtrer par catégorie',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          const SizedBox(height: 20),
+          const Padding(
+            padding: EdgeInsets.only(left: 8),
+            child: Text(
+              'Filtrer par catégorie',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1976D2),
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 12,
+            runSpacing: 12,
             children: filters.map((filter) {
               final isSelected = filter == selectedFilter;
               return FilterChip(
-                label: Text(filter),
+                label: Text(
+                  filter,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected ? Colors.white : const Color(0xFF1976D2),
+                  ),
+                ),
                 selected: isSelected,
                 onSelected: (selected) {
                   Navigator.pop(context);
                   onFilterChanged(filter);
                 },
-                backgroundColor: Colors.grey[100],
-                selectedColor: const Color(0xFF1976D2).withOpacity(0.2),
-                labelStyle: TextStyle(
-                  color: isSelected ? const Color(0xFF1976D2) : Colors.grey[700],
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
+                backgroundColor: Colors.grey[50],
+                selectedColor: const Color(0xFF1976D2),
+                checkmarkColor: Colors.white,
+                showCheckmark: true,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
                     color: isSelected ? const Color(0xFF1976D2) : Colors.grey[300]!,
-                    width: isSelected ? 1.5 : 1,
+                    width: isSelected ? 0 : 1,
                   ),
                 ),
+                elevation: isSelected ? 2 : 0,
               );
             }).toList(),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey[100],
+                foregroundColor: Colors.grey[700],
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Fermer',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );

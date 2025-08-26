@@ -251,7 +251,7 @@ class _AddBookPageState extends State<AddBookPage> {
               const SizedBox(height: 16),
               _buildFormField('Description', 'description', maxLines: 3),
               const SizedBox(height: 16),
-              _buildFormField('Prix (€)', 'price', isNumber: true, maxLines: 3),
+              _buildFormField('Prix (fcfa)', 'price', isNumber: true, maxLines: 3),
               const SizedBox(height: 16),
               _buildFormField('Nombre de pages', 'pages', isNumber: true, maxLines: 3),
               const SizedBox(height: 16),

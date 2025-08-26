@@ -4,23 +4,25 @@ import 'book_card.dart';
 class BooksPage extends StatelessWidget {
   final List<Map<String, dynamic>> books;
   final Function(String) onLikePressed;
+  final Function(Map<String, dynamic>) onBookPressed;
   final String selectedFilter;
   final Function(String) onFilterChanged;
   final List<String> filters;
   final ColorScheme colorScheme;
   final TextTheme textTheme;
-  final String currentUserId; // Nouveau paramètre pour l'ID utilisateur
+  final String currentUserId;
 
   const BooksPage({
     super.key,
     required this.books,
     required this.onLikePressed,
+    required this.onBookPressed,
     required this.selectedFilter,
     required this.onFilterChanged,
     required this.filters,
     required this.colorScheme,
     required this.textTheme,
-    required this.currentUserId, required void Function(Map<String, dynamic> book) onBookPressed, // Nouveau paramètre requis
+    required this.currentUserId,
   });
 
   @override
@@ -111,7 +113,7 @@ class BooksPage extends StatelessWidget {
                   colorScheme: colorScheme,
                   textTheme: textTheme,
                   onLikePressed: onLikePressed,
-                  currentUserId: currentUserId, // Passage de l'ID utilisateur
+                  currentUserId: currentUserId,
                 ),
               );
             },

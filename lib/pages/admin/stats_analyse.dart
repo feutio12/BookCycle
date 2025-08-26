@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
@@ -17,6 +18,14 @@ class _StatsAnalysisPageState extends State<StatsAnalysisPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (FirebaseAuth.instance.currentUser?.email != 'admin@gmail.com') {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Accès refusé')),
+        body: const Center(
+          child: Text('Accès réservé à l\'administrateur'),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Analytics BookCycle'),

@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../composants/CustomButtom.dart';
+import '../admin/admin_acc.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -32,6 +33,18 @@ class _LoginPageState extends State<LoginPage> {
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
+
+        // Vérifier si c'est l'administrateur
+        if (_emailController.text.trim() == 'admin@gmail.com') {
+          // Rediriger vers le tableau de bord administrateur
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => AdminAccountPage()),
+            );
+          }
+          return;
+        }
 
         // Récupérer les infos supplémentaires depuis Firestore
         DocumentSnapshot userDoc = await _firestore

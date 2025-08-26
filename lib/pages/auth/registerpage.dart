@@ -32,6 +32,29 @@ class _RegisterPageState extends State<RegisterPage> {
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
+
+        UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+
+        // Vérifier si c'est l'admin qui s'inscrit
+        if (_emailController.text.trim() == 'admin@gmail.com') {
+          await _firestore.collection('users').doc(userCredential.user!.uid).set({
+            'name': _nameController.text.trim(),
+            'email': _emailController.text.trim(),
+            'role': 'admin',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        } else {
+          await _firestore.collection('users').doc(userCredential.user!.uid).set({
+            'name': _nameController.text.trim(),
+            'email': _emailController.text.trim(),
+            'role': 'user',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+
         if (mounted) {
           Navigator.pushReplacement(
             context,

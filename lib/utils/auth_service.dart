@@ -11,7 +11,7 @@ class AuthService {
     if (user == null) return false;
 
     final userDoc = await _firestore.collection('users').doc(user.uid).get();
-    return userDoc['role'] == 'admin';
+    return userDoc['email'] == 'admin';
   }
 
   // Méthode de déconnexion

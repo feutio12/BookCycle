@@ -73,7 +73,8 @@ class AppRoutes {
           builder: (_) => ChatPage(
             chatId: args['chatId'],
             otherUserId: args['otherUserId'],
-            otherUserName: args['otherUserName'], initialMessage: '',
+            otherUserName: args['otherUserName'],
+            initialMessage: '',
           ),
         );
       case exchange:
@@ -112,7 +113,10 @@ class AppRoutes {
     if (!isAdmin) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Action réservée aux administrateurs')),
+        const SnackBar(
+          content: Text('Action réservée aux administrateurs'),
+          backgroundColor: Colors.red,
+        ),
       );
       return false;
     }

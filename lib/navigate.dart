@@ -15,7 +15,7 @@ class _OnboardingScreenState extends State<Navigate> {
     OnboardingPage(
       title: "Découvrez BookCycle",
       description: "Échangez vos livres avec d'autres passionnés de lecture et donnez une nouvelle vie à votre bibliothèque.",
-      imagePath: "assets/images/logo.png",
+      imagePath: "assets/images/BookCycle.png",
     ),
     OnboardingPage(
       title: "Partagez sans limites",

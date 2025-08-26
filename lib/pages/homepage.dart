@@ -1,4 +1,3 @@
-import 'package:bookcycle/pages/pages%20rincipales/Encherepage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:bookcycle/pages/pages%20rincipales/profilpage.dart';
@@ -9,6 +8,7 @@ import '../widgets/app_drawer.dart';
 import 'auth/loginpage.dart';
 import 'chats/chats_list_page.dart';
 import 'pages rincipales/Acceuilpage.dart';
+import 'pages rincipales/Encherepage.dart'; // Déplacé ici pour éviter l'import circulaire
 
 class Homepage extends StatelessWidget {
   final Map<String, dynamic>? userData;
@@ -34,10 +34,9 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 2; // Index par défaut sur Home
+  int _currentIndex = 2;
   User? currentUser;
 
-  // Liste fictive de discussions
   final List<ChatDiscussion> discussions = [
     ChatDiscussion(
       chatId: "1",
@@ -57,64 +56,33 @@ class _MainScreenState extends State<MainScreen> {
       lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
       unreadCount: 0,
       participants: [],
-      lastMessageSenderId: '', // Ajout du paramètre manquant
+      lastMessageSenderId: '',
     ),
   ];
 
-  late final List<Widget> _screens;
+  late List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
+    _initializeScreens();
+    _getCurrentUser();
+  }
 
-    // Initialiser avec des écrans vides d'abord
+  void _initializeScreens() {
     _screens = [
       SearchPage(),
       DiscussionsListPage(discussions: discussions),
-      const Acceuilpage(),
+      Acceuilpage(), // Retirer const
       AuctionPage(),
-      const ProfilePage(), // Utilisation correcte sans paramètre user
+      ProfilePage(), // Retirer const
     ];
-
-    // Obtenir l'utilisateur actuel
-    _getCurrentUser();
   }
 
   void _navigateToLogin() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
-    );
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-
-  void _showLoginRequiredSnackBar() {
-    final scaffold = ScaffoldMessenger.of(context);
-    scaffold.showSnackBar(
-      SnackBar(
-        content: const Text('Connectez-vous pour ajouter plus de livres'),
-        action: SnackBarAction(
-          label: 'Se connecter',
-          onPressed: () {
-            scaffold.hideCurrentSnackBar();
-            _navigateToLogin();
-          },
-        ),
-      ),
+      MaterialPageRoute(builder: (context) => LoginPage()), // Retirer const
     );
   }
 
@@ -123,14 +91,7 @@ class _MainScreenState extends State<MainScreen> {
     if (user != null) {
       setState(() {
         currentUser = user;
-        // Mettre à jour les écrans avec le ProfilePage approprié
-        _screens = [
-          SearchPage(),
-          DiscussionsListPage(discussions: discussions),
-          const Acceuilpage(),
-          AuctionPage(),
-          const ProfilePage(), // Utilisation correcte sans paramètre user
-        ];
+        _initializeScreens(); // Réinitialiser les écrans
       });
     }
   }

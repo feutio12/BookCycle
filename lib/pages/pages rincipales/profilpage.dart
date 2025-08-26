@@ -116,6 +116,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         'booksReceived': 0,
         'rating': 0.0,
         'profileCompleted': false,
+        'preferences': {
+          'notifications': true,
+          'emailUpdates': true,
+          'privacy': 'public',
+          'theme': 'system'
+        }
       };
 
       await FirebaseFirestore.instance
@@ -124,7 +130,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           .set(newUser);
 
       setState(() {
-        userData = userData;
+        userData = newUser;
         isLoading = false;
       });
     } catch (e) {
@@ -142,6 +148,230 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     } catch (e) {
       AppUtils.showErrorSnackBar(context, 'Erreur de déconnexion: ${e.toString()}');
     }
+  }
+
+  // Fonction pour modifier le profil
+  Future<void> _editProfile() async {
+    final nameController = TextEditingController(text: userData!['name']);
+    final bioController = TextEditingController(text: userData!['bio']);
+
+    final result = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Modifier le profil'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nom',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: bioController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Bio',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.user.uid)
+            .update({
+          'name': nameController.text,
+          'bio': bioController.text,
+          'profileCompleted': true,
+        });
+
+        // Mettre à jour les données locales
+        setState(() {
+          userData!['name'] = nameController.text;
+          userData!['bio'] = bioController.text;
+          userData!['profileCompleted'] = true;
+        });
+
+        AppUtils.showSuccessSnackBar(context, 'Profil mis à jour avec succès!');
+      } catch (e) {
+        AppUtils.showErrorSnackBar(context, 'Erreur de mise à jour: ${e.toString()}');
+      }
+    }
+  }
+
+  // Fonction pour modifier les préférences
+  Future<void> _editPreferences() async {
+    // Récupérer les préférences actuelles ou utiliser des valeurs par défaut
+    final preferences = userData!['preferences'] ?? {
+      'notifications': true,
+      'emailUpdates': true,
+      'privacy': 'public',
+      'theme': 'system'
+    };
+
+    bool notifications = preferences['notifications'] ?? true;
+    bool emailUpdates = preferences['emailUpdates'] ?? true;
+    String privacy = preferences['privacy'] ?? 'public';
+    String theme = preferences['theme'] ?? 'system';
+
+    final result = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Préférences'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Notifications'),
+                      value: notifications,
+                      onChanged: (value) {
+                        setState(() {
+                          notifications = value;
+                        });
+                      },
+                    ),
+                    SwitchListTile(
+                      title: const Text('Mises à jour par email'),
+                      value: emailUpdates,
+                      onChanged: (value) {
+                        setState(() {
+                          emailUpdates = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Confidentialité:'),
+                    RadioListTile<String>(
+                      title: const Text('Public'),
+                      value: 'public',
+                      groupValue: privacy,
+                      onChanged: (value) {
+                        setState(() {
+                          privacy = value!;
+                        });
+                      },
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Privé'),
+                      value: 'private',
+                      groupValue: privacy,
+                      onChanged: (value) {
+                        setState(() {
+                          privacy = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Thème:'),
+                    DropdownButtonFormField<String>(
+                      value: theme,
+                      items: const [
+                        DropdownMenuItem(value: 'system', child: Text('Système')),
+                        DropdownMenuItem(value: 'light', child: Text('Clair')),
+                        DropdownMenuItem(value: 'dark', child: Text('Sombre')),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          theme = value!;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Enregistrer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.user.uid)
+            .update({
+          'preferences': {
+            'notifications': notifications,
+            'emailUpdates': emailUpdates,
+            'privacy': privacy,
+            'theme': theme
+          }
+        });
+
+        // Mettre à jour les données locales
+        setState(() {
+          userData!['preferences'] = {
+            'notifications': notifications,
+            'emailUpdates': emailUpdates,
+            'privacy': privacy,
+            'theme': theme
+          };
+        });
+
+        AppUtils.showSuccessSnackBar(context, 'Préférences mises à jour avec succès!');
+      } catch (e) {
+        AppUtils.showErrorSnackBar(context, 'Erreur de mise à jour: ${e.toString()}');
+      }
+    }
+  }
+
+  // Fonction pour modifier la photo de profil
+  Future<void> _editProfilePhoto() async {
+    // Dans une implémentation réelle, vous utiliseriez image_picker
+    // Pour cet exemple, nous allons simplement montrer une démo
+    final result = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Modifier la photo de profil'),
+          content: const Text('Cette fonctionnalité sera bientôt disponible!'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -260,9 +490,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 child: IconButton(
                   icon: const Icon(Icons.edit, size: 18),
                   color: AppColors.primaryBlue,
-                  onPressed: () {
-                    // Action pour modifier la photo de profil
-                  },
+                  onPressed: _editProfilePhoto,
                 ),
               ),
             ],
@@ -400,9 +628,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.edit, size: 18),
-                  onPressed: () {
-                    // Action pour modifier la bio
-                  },
+                  onPressed: _editProfile,
                 ),
               ],
             ),
@@ -425,9 +651,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           child: ElevatedButton.icon(
             icon: const Icon(Icons.edit),
             label: const Text('Modifier le profil'),
-            onPressed: () {
-              // Action pour modifier le profil
-            },
+            onPressed: _editProfile,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryBlue,
               foregroundColor: Colors.white,
@@ -443,9 +667,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           child: OutlinedButton.icon(
             icon: const Icon(Icons.settings),
             label: const Text('Préférences'),
-            onPressed: () {
-              // Action pour les préférences
-            },
+            onPressed: _editPreferences,
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
