@@ -20,29 +20,39 @@ class Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(left: 24, top: 70, right: 24, bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Bienvenue${name.isNotEmpty ? ', $name' : ''}',
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              height: 1.2,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1976D2),
+            Color(0xFF42A5F5),
+          ],
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 20, top: 70, right: 20, bottom: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bienvenue${name.isNotEmpty ? ', $name' : ''}',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _getWelcomeMessage(),
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 8),
+            Text(
+              _getWelcomeMessage(),
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.white70,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -104,22 +114,16 @@ class BookList extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 60,
-            height: 60,
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF1976D2).withOpacity(0.8)),
-              strokeWidth: 4,
-              backgroundColor: Colors.white,
-            ),
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
+            strokeWidth: 4,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Text(
             'Chargement des livres...',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -130,16 +134,16 @@ class BookList extends StatelessWidget {
   Widget _buildEmptyState(String selectedFilter) {
     return Center(
       child: Container(
-        padding: const EdgeInsets.all(28),
-        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
+        margin: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
               color: Colors.blue.withOpacity(0.1),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -147,29 +151,21 @@ class BookList extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1976D2).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.menu_book_rounded,
-                size: 50,
-                color: const Color(0xFF1976D2).withOpacity(0.7),
-              ),
+            Icon(
+              Icons.menu_book,
+              size: 80,
+              color: const Color(0xFF1976D2).withOpacity(0.5),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             const Text(
               'Aucun livre trouvé',
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF1976D2),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
               selectedFilter == 'Tous'
                   ? 'Soyez le premier à ajouter un livre!'
@@ -178,7 +174,6 @@ class BookList extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 16,
                 color: Color(0xFF757575),
-                height: 1.5,
               ),
             ),
           ],
@@ -204,25 +199,20 @@ class SearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 60,
-      margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
       ),
       child: Row(
         children: [
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(12),
               ),
               child: TextField(
@@ -230,37 +220,22 @@ class SearchBar extends StatelessWidget {
                 onChanged: onChanged,
                 decoration: InputDecoration(
                   hintText: 'Rechercher un livre ou un auteur...',
-                  hintStyle: TextStyle(color: Colors.grey[600], fontSize: 15),
-                  prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[600]),
+                  hintStyle: TextStyle(color: Colors.grey[600]),
+                  prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                style: const TextStyle(fontSize: 15),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Container(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1976D2),
-                  Color(0xFF42A5F5),
-                ],
-              ),
+              color: const Color(0xFF1976D2),
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1976D2).withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: IconButton(
-              icon: const Icon(Icons.filter_list_rounded, color: Colors.white, size: 24),
+              icon: const Icon(Icons.filter_list, color: Colors.white),
               onPressed: onFilterPressed,
             ),
           ),

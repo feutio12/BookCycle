@@ -141,13 +141,43 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _signOut() async {
     try {
+      // Déconnexion technique de Firebase
       await FirebaseAuth.instance.signOut();
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginPage()),
+
+      // Redirection vers la page de connexion sans possibilité de retour
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => LoginPage()),
+            (route) => false, // Supprime toutes les routes précédentes
       );
+
     } catch (e) {
       AppUtils.showErrorSnackBar(context, 'Erreur de déconnexion: ${e.toString()}');
     }
+  }
+
+  // Méthode pour afficher la boîte de dialogue de confirmation
+  void _showSignOutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmation de déconnexion'),
+        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler')
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx); // Fermer la boîte de dialogue
+              _signOut(); // Exécuter la déconnexion
+            },
+            child: const Text('Se déconnecter'),
+          ),
+        ],
+      ),
+    );
   }
 
   // Fonction pour modifier le profil
@@ -398,7 +428,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: _signOut,
+            onPressed: _showSignOutDialog,
             tooltip: 'Déconnexion',
           ),
         ],
@@ -553,7 +583,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             _buildVerticalDivider(),
             _buildStatItem(
               'Note',
-              userData!['rating'].toStringAsFixed(1),
+              (userData!['rating'] ?? 0.0).toStringAsFixed(1), // Correction ici
               Icons.star,
               Colors.amber,
             ),

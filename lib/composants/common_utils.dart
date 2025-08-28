@@ -10,18 +10,6 @@ import '../pages/auth/loginpage.dart';
 import 'common_components.dart';
 
 class AppUtils {
-  // Vérifier le statut de publication invité
-  static Future<bool> checkGuestPostingStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('hasPostedAsGuest') ?? false;
-  }
-
-  // Sauvegarder le statut de publication invité
-  static Future<void> setGuestPostingStatus(bool hasPosted) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('hasPostedAsGuest', hasPosted);
-  }
-
   // Convertir une image en base64
   static Future<String?> convertImageToBase64(File? imageFile) async {
     if (imageFile == null) return null;

@@ -13,8 +13,7 @@ import '../../composants/common_components.dart';
 import '../../composants/common_utils.dart';
 
 class AddBookPage extends StatefulWidget {
-  final bool isGuest;
-  const AddBookPage({super.key, required this.isGuest});
+  const AddBookPage({super.key,});
 
   @override
   State<AddBookPage> createState() => _AddBookPageState();
@@ -35,7 +34,6 @@ class _AddBookPageState extends State<AddBookPage> {
   String? _selectedCategory;
   bool _isLoading = false;
   String? _uploadError;
-  bool _hasPostedAsGuest = false;
 
   static const _categories = [
     'Science-fiction', 'Romance', 'Fantasy',
@@ -45,14 +43,6 @@ class _AddBookPageState extends State<AddBookPage> {
   @override
   void initState() {
     super.initState();
-    _checkGuestPostingStatus();
-  }
-
-  Future<void> _checkGuestPostingStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _hasPostedAsGuest = prefs.getBool('hasPostedAsGuest') ?? false;
-    });
   }
 
   @override
@@ -90,11 +80,6 @@ class _AddBookPageState extends State<AddBookPage> {
       return;
     }
 
-    // Vérification pour les invités
-    if (widget.isGuest && _hasPostedAsGuest) {
-      AppUtils.showErrorSnackBar(context, 'Connectez-vous pour ajouter plus de livres');
-      return;
-    }
 
     setState(() => _isLoading = true);
 
@@ -104,10 +89,6 @@ class _AddBookPageState extends State<AddBookPage> {
 
       final bookData = await _prepareBookData(imageBase64);
       await _saveBookToFirestore(bookData);
-
-      if (widget.isGuest) {
-        await AppUtils.setGuestPostingStatus(true);
-      }
 
       _showSuccessMessageAndRedirect();
     } catch (e) {
@@ -120,7 +101,6 @@ class _AddBookPageState extends State<AddBookPage> {
   Future<Map<String, dynamic>> _prepareBookData(String imageBase64) async {
     String publisherName = 'Anonyme';
 
-    if (!widget.isGuest) {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         publisherName = user.displayName ?? 'Anonyme';
@@ -141,7 +121,7 @@ class _AddBookPageState extends State<AddBookPage> {
             print('Erreur lors de la récupération du nom: $e');
           }
         }
-      }
+
     }
 
     final bookData = {
@@ -160,12 +140,6 @@ class _AddBookPageState extends State<AddBookPage> {
       'publisherName': publisherName,
     };
 
-    if (!widget.isGuest) {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        bookData['userId'] = user.uid;
-      }
-    }
 
     return bookData;
   }
@@ -299,10 +273,6 @@ class _AddBookPageState extends State<AddBookPage> {
                 onPressed: _submitForm,
                 isLoading: _isLoading,
               ),
-              if (widget.isGuest)
-                const InfoMessage(
-                  message: 'Mode invité: vous ne pouvez publier qu\'un seul livre',
-                ),
             ],
           ),
         ),

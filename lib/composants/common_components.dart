@@ -27,6 +27,7 @@ class AppColors {
   static const Color error = Color(0xFFEF5350);
 }
 
+
 // Styles de texte communs
 class AppTextStyles {
   static const TextStyle titleLarge = TextStyle(
@@ -52,6 +53,7 @@ class AppTextStyles {
     letterSpacing: 0.5,
   );
 }
+
 
 // Composant de bouton principal
 class PrimaryButton extends StatelessWidget {
@@ -110,6 +112,7 @@ class PrimaryButton extends StatelessWidget {
   }
 }
 
+
 // Composant de champ de formulaire
 class FormTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -155,6 +158,7 @@ class FormTextField extends StatelessWidget {
     );
   }
 }
+
 
 // Composant de sélecteur d'image
 class ImagePickerWidget extends StatelessWidget {
@@ -231,6 +235,7 @@ class ImagePickerWidget extends StatelessWidget {
   }
 }
 
+
 // Composant de message d'erreur
 class ErrorMessage extends StatelessWidget {
   final String message;
@@ -261,6 +266,7 @@ class ErrorMessage extends StatelessWidget {
     );
   }
 }
+
 
 // Composant de message d'information
 class InfoMessage extends StatelessWidget {

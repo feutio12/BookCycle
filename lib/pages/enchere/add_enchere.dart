@@ -36,12 +36,6 @@ class _AddEncherePageState extends State<AddEncherePage> {
   @override
   void initState() {
     super.initState();
-    _checkGuestPostingStatus();
-  }
-
-  Future<void> _checkGuestPostingStatus() async {
-    final hasPosted = await AppUtils.checkGuestPostingStatus();
-    setState(() => _hasPostedAsGuest = hasPosted);
   }
 
   @override
@@ -97,10 +91,6 @@ class _AddEncherePageState extends State<AddEncherePage> {
 
       final enchereData = await _prepareEnchereData(imageBase64);
       await _saveEnchereToFirestore(enchereData);
-
-      if (widget.isGuest) {
-        await AppUtils.setGuestPostingStatus(true);
-      }
 
       AppUtils.showSuccessSnackBar(context, 'Enchère créée avec succès');
       Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);

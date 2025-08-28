@@ -37,7 +37,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
   List<Map<String, dynamic>> _filteredBooks = [];
   String _selectedFilter = 'Tous';
   bool _isLoading = true;
-  bool _hasPostedAsGuest = false;
   bool _isFirstTime = true;
   final ScrollController _scrollController = ScrollController();
   bool _showSearchBar = false;
@@ -47,7 +46,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
   void initState() {
     super.initState();
     _checkFirstTime();
-    _checkGuestPostingStatus();
     _fetchBooks();
     _scrollController.addListener(_scrollListener);
   }
@@ -76,13 +74,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
     if (_isFirstTime) {
       await prefs.setBool('isFirstTime', false);
     }
-  }
-
-  Future<void> _checkGuestPostingStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _hasPostedAsGuest = prefs.getBool('hasPostedAsGuest') ?? false;
-    });
   }
 
   Future<void> _fetchBooks() async {
@@ -237,35 +228,15 @@ class _AcceuilpageState extends State<Acceuilpage> {
       return;
     }
 
-    final isGuest = user.isAnonymous;
-
-    if (isGuest) {
-      final prefs = await SharedPreferences.getInstance();
-      final hasPosted = prefs.getBool('hasPostedAsGuest') ?? false;
-
-      final guestBooksCount = _allBooks.where((book) => book['isGuestBook'] == true).length;
-      if (guestBooksCount >= 1) {
-        await prefs.setBool('hasPostedAsGuest', true);
-        return;
-      }
-    }
-
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => AddBookPage(isGuest: isGuest),
+        builder: (context) => AddBookPage(),
       ),
     );
 
     if (result == true && mounted) {
       await _fetchBooks();
-      if (isGuest) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('hasPostedAsGuest', true);
-        setState(() {
-          _hasPostedAsGuest = true;
-        });
-      }
     }
   }
 
@@ -282,9 +253,7 @@ class _AcceuilpageState extends State<Acceuilpage> {
         content: Text(message),
         backgroundColor: Colors.red[700],
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 4,
-        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -295,10 +264,8 @@ class _AcceuilpageState extends State<Acceuilpage> {
         content: Text(message),
         backgroundColor: const Color(0xFF2E7D32),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 1),
-        elevation: 4,
-        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -310,7 +277,7 @@ class _AcceuilpageState extends State<Acceuilpage> {
         content: Text('Connectez-vous $action'),
         backgroundColor: const Color(0xFF1976D2),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         action: SnackBarAction(
           label: 'Se connecter',
           textColor: Colors.white,
@@ -320,8 +287,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
           },
         ),
         duration: const Duration(seconds: 3),
-        elevation: 4,
-        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -335,8 +300,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
       value: SystemUiOverlayStyle.light.copyWith(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: const Color(0xFFF5F9FF),
-        systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F9FF),
@@ -345,104 +308,59 @@ class _AcceuilpageState extends State<Acceuilpage> {
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
               SliverAppBar(
-                expandedHeight: 200.0,
+                expandedHeight: 180.0,
                 floating: false,
                 pinned: true,
                 snap: false,
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                flexibleSpace: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            const Color(0xFF1976D2).withOpacity(0.9),
-                            const Color(0xFF42A5F5).withOpacity(0.8),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(constraints.maxHeight > 120 ? 30 : 0),
-                          bottomRight: Radius.circular(constraints.maxHeight > 120 ? 30 : 0),
-                        ),
-                      ),
-                      child: FlexibleSpaceBar(
-                        collapseMode: CollapseMode.pin,
-                        background: Header(name: name),
-                      ),
-                    );
-                  },
+                backgroundColor: const Color(0xFF1976D2),
+                elevation: 4,
+                flexibleSpace: FlexibleSpaceBar(
+                  collapseMode: CollapseMode.pin,
+                  background: Header(name: name),
                 ),
                 bottom: PreferredSize(
-                  preferredSize: const Size.fromHeight(70),
-                  child: Container(
-                    transform: Matrix4.translationValues(0, 15, 0),
-                    child: SearchBar(
-                      controller: _searchController,
-                      onChanged: _searchBooks,
-                      onFilterPressed: () {
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (context) => BookFilter(
-                            filters: _filters,
-                            selectedFilter: _selectedFilter,
-                            onFilterChanged: _filterBooks,
-                          ),
-                        );
-                      },
-                    ),
+                  preferredSize: const Size.fromHeight(60),
+                  child: SearchBar(
+                    controller: _searchController,
+                    onChanged: _searchBooks,
+                    onFilterPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (context) => BookFilter(
+                          filters: _filters,
+                          selectedFilter: _selectedFilter,
+                          onFilterChanged: _filterBooks,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
             ];
           },
-          body: Container(
-            decoration: const BoxDecoration(
-              color: Color(0xFFF5F9FF),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(30),
-                topRight: Radius.circular(30),
-              ),
-            ),
-            child: BookList(
-              books: _filteredBooks,
-              onLikePressed: _toggleLike,
-              onBookPressed: _navigateToBookDetails,
-              selectedFilter: _selectedFilter,
-              onFilterChanged: _filterBooks,
-              filters: _filters,
-              colorScheme: Theme.of(context).colorScheme,
-              textTheme: Theme.of(context).textTheme,
-              currentUserId: user?.uid ?? '',
-              isLoading: _isLoading,
-              scrollController: _scrollController,
-            ),
+          body: BookList(
+            books: _filteredBooks,
+            onLikePressed: _toggleLike,
+            onBookPressed: _navigateToBookDetails,
+            selectedFilter: _selectedFilter,
+            onFilterChanged: _filterBooks,
+            filters: _filters,
+            colorScheme: Theme.of(context).colorScheme,
+            textTheme: Theme.of(context).textTheme,
+            currentUserId: user?.uid ?? '',
+            isLoading: _isLoading,
+            scrollController: _scrollController,
           ),
         ),
-        floatingActionButton: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1976D2).withOpacity(0.4),
-                blurRadius: 10,
-                spreadRadius: 2,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: FloatingActionButton(
-            onPressed: _navigateToAddBook,
-            backgroundColor: const Color(0xFF1976D2),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            elevation: 0,
-            child: const Icon(Icons.add, size: 28),
-          ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _navigateToAddBook,
+          backgroundColor: const Color(0xFF1976D2),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: const Icon(Icons.add, size: 28),
         ),
       ),
     );

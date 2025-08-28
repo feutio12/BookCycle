@@ -174,132 +174,144 @@ class BookCard extends StatelessWidget {
                   ),
 
                 // Contenu principal
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Column(
                   children: [
-                    // Image du livre
-                    Hero(
-                      tag: 'book-${bookData['id']}',
-                      child: _buildBookImage(bookData['imageUrl']),
-                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Image du livre
+                        Hero(
+                          tag: 'book-${bookData['id']}',
+                          child: _buildBookImage(bookData['imageUrl']),
 
-                    const SizedBox(width: 16),
+                        ),
 
-                    // Détails du livre
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Titre et auteur
-                          Text(
-                            bookData['title'],
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 18,
-                              color: const Color(0xFF1A237E),
-                              height: 1.3,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        const SizedBox(width: 10),
 
-                          const SizedBox(height: 4),
-
-                          Text(
-                            'par ${bookData['author']}',
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF546E7A),
-                              fontWeight: FontWeight.w500,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          // État et type
-                          Row(
+                        // Détails du livre
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildInfoChip(
-                                Icons.auto_awesome_rounded,
-                                bookData['condition'],
-                                const Color(0xFF1976D2),
+                              // Titre et auteur
+                              Text(
+                                bookData['title'],
+                                style: textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                  color: const Color(0xFF1A237E),
+                                  height: 1.3,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(width: 8),
-                              _buildInfoChip(
-                                bookData['type'] == 'Échange'
-                                    ? Icons.swap_horiz_rounded
-                                    : Icons.attach_money_rounded,
-                                bookData['type'],
-                                const Color(0xFF4CAF50),
-                              ),
-                            ],
-                          ),
 
-                          const SizedBox(height: 12),
+                              const SizedBox(height: 4),
 
-                          // Description
-                          Text(
-                            bookData['description'],
-                            style: textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF607D8B),
-                              height: 1.5,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // Footer avec prix, pages et actions
-                          Row(
-                            children: [
-                              // Prix et pages
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${bookData['price']} FCFA',
-                                      style: textTheme.bodyLarge?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                        color: const Color(0xFF1976D2),
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${bookData['pages']} pages',
-                                      style: textTheme.bodySmall?.copyWith(
-                                        color: const Color(0xFF78909C),
-                                      ),
-                                    ),
-                                  ],
+                              Text(
+                                'par ${bookData['author']}',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: const Color(0xFF546E7A),
+                                  fontWeight: FontWeight.w500,
+                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
 
-                              // Note et likes
+                              const SizedBox(height: 8),
+
+                              // État et type
                               Row(
                                 children: [
-                                  _buildRatingStars(bookData['rating']),
-                                  const SizedBox(width: 16),
-                                  _buildLikeButton(bookData['id'], bookData['likes']),
+                                  _buildInfoChip(
+                                    Icons.auto_awesome_rounded,
+                                    bookData['condition'],
+                                    const Color(0xFF1976D2),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildInfoChip(
+                                    bookData['type'] == 'Échange'
+                                        ? Icons.swap_horiz_rounded
+                                        : Icons.attach_money_rounded,
+                                    bookData['type'],
+                                    const Color(0xFF4CAF50),
+                                  ),
                                 ],
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Description
+                              Text(
+                                bookData['description'],
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: const Color(0xFF607D8B),
+                                  height: 1.5,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Footer avec prix, pages et actions
+
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+
+                    Row(
+                      children: [
+                        // Pages
+                        Expanded(
+                          child: Row(
+                            //crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${bookData['price']} FCFA',
+                                style: textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF1976D2),
+                                  fontSize: 16,
+                                ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+
+                        // Note et likes
+                        Row(
+                          children: [
+                            _buildRatingStars(bookData['rating']),
+                            const SizedBox(width: 16),
+                            _buildLikeButton(bookData['id'], bookData['likes']),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
 
                 // Publié par
                 const SizedBox(height: 12),
-                Text(
-                  'Publié par ${bookData['publisherName']}',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF90A4AE),
-                    fontStyle: FontStyle.italic,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Publié par ${bookData['publisherName']}',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF90A4AE),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),Spacer(),
+                    Text(
+                      '${bookData['pages']} pages',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF78909C),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

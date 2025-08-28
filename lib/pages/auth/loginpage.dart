@@ -1,13 +1,12 @@
 import 'package:bookcycle/pages/auth/registerpage.dart';
 import 'package:bookcycle/composants/CustomTextfield.dart';
 import 'package:bookcycle/pages/homepage.dart';
-import 'package:bookcycle/pages/pages%20rincipales/Acceuilpage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../composants/CustomButtom.dart';
-import '../admin/admin_acc.dart';
+import '../admin/admin_dashboard.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -24,68 +23,103 @@ class _LoginPageState extends State<LoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Constantes pour éviter les répétitions de texte
+  static const String adminEmail = 'admin@gmail.com';
+  static const String loginTitle = 'CONNEXION';
+  static const String noAccountText = "Pas de compte ? S'inscrire";
+
+  bool obscurePassword = true;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      try {
-        setState(() => _isLoading = true);
+    if (!_formKey.currentState!.validate()) return;
 
-        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
+    setState(() => _isLoading = true);
+
+    try {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Vérifier si c'est l'administrateur
+      if (email == adminEmail) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminDashboard()),
         );
+        return;
+      }
 
-        // Vérifier si c'est l'administrateur
-        if (_emailController.text.trim() == 'admin@gmail.com') {
-          // Rediriger vers le tableau de bord administrateur
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => AdminAccountPage()),
-            );
-          }
-          return;
-        }
+      // Récupérer les infos supplémentaires depuis Firestore
+      DocumentSnapshot userDoc = await _firestore
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
 
-        // Récupérer les infos supplémentaires depuis Firestore
-        DocumentSnapshot userDoc = await _firestore
-            .collection('users')
-            .doc(userCredential.user!.uid)
-            .get();
-
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => Homepage(
-              userData: userDoc.data() as Map<String, dynamic>? ?? {},
-            )),
-          );
-        }
-      } on FirebaseAuthException catch (e) {
-        String errorMessage = 'Erreur de connexion';
-        if (e.code == 'user-not-found') {
-          errorMessage = 'Utilisateur non trouvé';
-        } else if (e.code == 'wrong-password') {
-          errorMessage = 'Mot de passe incorrect';
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage)),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => Homepage(
+          userData: userDoc.data() as Map<String, dynamic>? ?? {},
+        )),
+      );
+    } on FirebaseAuthException catch (e) {
+      _handleAuthError(e);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
-  Future<bool> isAdmin(String userId) async {
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .get();
-    return userDoc['role'] == 'admin';
+
+  void _handleAuthError(FirebaseAuthException e) {
+    String errorMessage;
+
+    switch (e.code) {
+      case 'user-not-found':
+        errorMessage = 'Utilisateur non trouvé';
+        break;
+      case 'wrong-password':
+        errorMessage = 'Mot de passe incorrect';
+        break;
+      case 'invalid-email':
+        errorMessage = 'Email invalide';
+        break;
+      case 'user-disabled':
+        errorMessage = 'Compte désactivé';
+        break;
+      default:
+        errorMessage = 'Erreur de connexion';
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    }
+  }
+
+  String? _emailValidator(String? value) {
+    if (value == null || value.isEmpty) return 'Email requis';
+    if (!value.contains('@')) return 'Email invalide';
+    return null;
+  }
+
+  String? _passwordValidator(String? value) {
+    if (value == null || value.isEmpty) return 'Mot de passe requis';
+    if (value.length < 6) return '6 caractères minimum';
+    return null;
   }
 
   @override
@@ -100,42 +134,51 @@ class _LoginPageState extends State<LoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("CONNEXION",
-                      style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold)
+                  Text(
+                    loginTitle,
+                    style: const TextStyle(
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold
+                    ),
                   ),
                   const SizedBox(height: 40),
-                  Image.asset("assets/images/BookCycle.png",  height: 250),
+                  Image.asset(
+                      "assets/images/BookCycle.png",
+                      height: 250
+                  ),
                   const SizedBox(height: 30),
 
                   CustomTextField(
                     controller: _emailController,
                     labelText: 'Email',
+                    hintext: "Entrez votre email",
                     prefixIcon: Icons.email,
                     keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Email requis';
-                      if (!value.contains('@')) return 'Email invalide';
-                      return null;
-                    },
+                    validator: _emailValidator,
                   ),
                   const SizedBox(height: 15),
 
                   CustomTextField(
                     controller: _passwordController,
                     labelText: 'Mot de passe',
+                    hintext: "Entrez votre mot de passe",
                     prefixIcon: Icons.lock,
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Mot de passe requis';
-                      if (value.length < 6) return '6 caractères minimum';
-                      return null;
-                    },
+                    obscureText: obscurePassword,
+                    surfixIcon: IconButton(
+                        onPressed: () {
+                          setState(() {
+                            obscurePassword = !obscurePassword;
+                          });
+                        },
+                        icon: obscurePassword ?  Icon(Icons.visibility_off, color: Colors.blue.shade300,) : Icon(Icons.visibility,color: Colors.blue.shade300,)
+                    ),
+                    validator: _passwordValidator,
                   ),
                   const SizedBox(height: 25),
 
                   CustomButton(
                     onPressed: _submitForm,
-                    text: 'CONNEXION',
+                    text: loginTitle,
                     isLoading: _isLoading,
                   ),
                   const SizedBox(height: 15),
@@ -148,8 +191,8 @@ class _LoginPageState extends State<LoginPage> {
                       MaterialPageRoute(builder: (_) => const RegisterPage()),
                     ),
                     child: const Text(
-                        "Pas de compte ? S'inscrire",
-                      style: TextStyle(color: Colors.blue)
+                      noAccountText,
+                      style: TextStyle(color: Colors.blue),
                     ),
                   ),
                 ],

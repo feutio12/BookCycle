@@ -22,64 +22,117 @@ class _RegisterPageState extends State<RegisterPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Constantes
+  static const String adminEmail = 'admin@gmail.com';
+  static const String registerTitle = "S'INSCRIRE";
+  static const String haveAccountText = "Déjà un compte ? Se connecter";
+  static const String pageTitle = "Créer un compte";
+
+  bool obscurePassword = true;
+  bool obscureconfirmPassword = true;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
   Future<void> _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      try {
-        setState(() => _isLoading = true);
+    if (!_formKey.currentState!.validate()) return;
 
-        // pour créer l'utilisateur dans Firebase Auth
-        UserCredential _ = await _auth.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
+    setState(() => _isLoading = true);
+
+    try {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+      final name = _nameController.text.trim();
+
+      // Créer l'utilisateur dans Firebase Auth
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Déterminer le rôle de l'utilisateur
+      final role = email == adminEmail ? 'admin' : 'user';
+
+      // Enregistrer les informations supplémentaires dans Firestore
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'name': name,
+        'email': email,
+        'role': role,
+        'createdAt': FieldValue.serverTimestamp(),
+        'uid': userCredential.user!.uid,
+      });
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
         );
-
-        UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-        );
-
-        // Vérifier si c'est l'admin qui s'inscrit
-        if (_emailController.text.trim() == 'admin@gmail.com') {
-          await _firestore.collection('users').doc(userCredential.user!.uid).set({
-            'name': _nameController.text.trim(),
-            'email': _emailController.text.trim(),
-            'role': 'admin',
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-        } else {
-          await _firestore.collection('users').doc(userCredential.user!.uid).set({
-            'name': _nameController.text.trim(),
-            'email': _emailController.text.trim(),
-            'role': 'user',
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-        }
-
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginPage()),
-          );
-        }
-      } on FirebaseAuthException catch (e) {
-        String errorMessage = "Erreur d'inscription";
-        if (e.code == 'weak-password') {
-          errorMessage = 'Mot de passe trop faible';
-        } else if (e.code == 'email-already-in-use') {
-          errorMessage = 'Email déjà utilisé';
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage)),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+      }
+    } on FirebaseAuthException catch (e) {
+      _handleAuthError(e);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _handleAuthError(FirebaseAuthException e) {
+    String errorMessage;
+
+    switch (e.code) {
+      case 'weak-password':
+        errorMessage = 'Mot de passe trop faible';
+        break;
+      case 'email-already-in-use':
+        errorMessage = 'Email déjà utilisé';
+        break;
+      case 'invalid-email':
+        errorMessage = 'Email invalide';
+        break;
+      case 'operation-not-allowed':
+        errorMessage = 'Opération non autorisée';
+        break;
+      default:
+        errorMessage = "Erreur d'inscription";
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    }
+  }
+
+  String? _nameValidator(String? value) {
+    if (value == null || value.isEmpty) return 'Nom requis';
+    if (value.length < 2) return 'Nom trop court';
+    return null;
+  }
+
+  String? _emailValidator(String? value) {
+    if (value == null || value.isEmpty) return 'Email requis';
+    if (!value.contains('@')) return 'Email invalide';
+    return null;
+  }
+
+  String? _passwordValidator(String? value) {
+    if (value == null || value.isEmpty) return 'Mot de passe requis';
+    if (value.length < 6) return '6 caractères minimum';
+    return null;
+  }
+
+  String? _confirmPasswordValidator(String? value) {
+    if (value != _passwordController.text) {
+      return 'Les mots de passe ne correspondent pas';
+    }
+    return null;
   }
 
   @override
@@ -94,16 +147,26 @@ class _RegisterPageState extends State<RegisterPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Créer un compte", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                  Image.asset("assets/images/BookCycle.png", height: 220),
+                  Text(
+                      pageTitle,
+                      style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold
+                      )
+                  ),
+                  Image.asset(
+                      "assets/images/BookCycle.png",
+                      height: 220
+                  ),
                   const SizedBox(height: 30),
 
                   // Name Field
                   CustomTextField(
                     controller: _nameController,
                     labelText: 'Nom complet',
+                    hintext: "Entrez votre nom complet",
                     prefixIcon: Icons.person,
-                    validator: (value) => value!.isEmpty ? 'Nom requis' : null,
+                    validator: _nameValidator,
                   ),
                   const SizedBox(height: 15),
 
@@ -111,10 +174,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   CustomTextField(
                     controller: _emailController,
                     labelText: 'Email',
+                    hintext: "Entrez votre email",
                     prefixIcon: Icons.email,
                     keyboardType: TextInputType.emailAddress,
-                    validator: (value) => value!.isEmpty ? 'Email requis' :
-                    !value.contains('@') ? 'Email invalide' : null,
+                    validator: _emailValidator,
                   ),
                   const SizedBox(height: 15),
 
@@ -122,10 +185,18 @@ class _RegisterPageState extends State<RegisterPage> {
                   CustomTextField(
                     controller: _passwordController,
                     labelText: 'Mot de passe',
+                    hintext: "Entrez votre mot de passe",
                     prefixIcon: Icons.lock,
-                    obscureText: true,
-                    validator: (value) => value!.isEmpty ? 'Mot de passe requis' :
-                    value.length < 6 ? '6 caractères minimum' : null,
+                    obscureText: obscurePassword,
+                    surfixIcon: IconButton(
+                        onPressed: () {
+                          setState(() {
+                            obscurePassword = !obscurePassword;
+                          });
+                        },
+                        icon: obscurePassword ? Icon(Icons.visibility_off, color: Colors.blue.shade300,) : Icon(Icons.visibility,color: Colors.blue.shade300,)
+                    ),
+                    validator: _passwordValidator,
                   ),
                   const SizedBox(height: 15),
 
@@ -133,17 +204,25 @@ class _RegisterPageState extends State<RegisterPage> {
                   CustomTextField(
                     controller: _confirmController,
                     labelText: 'Confirmer mot de passe',
+                    hintext: "Confirmez votre mot de passe",
                     prefixIcon: Icons.lock_outline,
-                    obscureText: true,
-                    validator: (value) => value != _passwordController.text ?
-                    'Les mots de passe ne correspondent pas' : null,
+                    obscureText: obscureconfirmPassword,
+                    surfixIcon: IconButton(
+                        onPressed: () {
+                          setState(() {
+                            obscureconfirmPassword = !obscureconfirmPassword;
+                          });
+                        },
+                        icon: obscureconfirmPassword ? Icon(Icons.visibility_off, color: Colors.blue.shade300,) : Icon(Icons.visibility,color: Colors.blue.shade300,)
+                    ),
+                    validator: _confirmPasswordValidator,
                   ),
                   const SizedBox(height: 25),
 
-                  // Submit Button - REMPLACÉ PAR CustomButton
+                  // Submit Button
                   CustomButton(
                     onPressed: _submitForm,
-                    text: "S'INSCRIRE",
+                    text: registerTitle,
                     isLoading: _isLoading,
                   ),
                   const SizedBox(height: 15),
@@ -151,11 +230,13 @@ class _RegisterPageState extends State<RegisterPage> {
                   // Login Link
                   TextButton(
                     onPressed: _isLoading ? null : () => Navigator.pushReplacement(
-                        context, MaterialPageRoute(builder: (_) => const LoginPage())),
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginPage())
+                    ),
                     child: const Text(
-                        "Déjà un compte ? Se connecter",
+                      haveAccountText,
                       style: TextStyle(color: Colors.blue),
-                    ) ,
+                    ),
                   ),
                 ],
               ),

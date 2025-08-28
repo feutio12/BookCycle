@@ -3,7 +3,6 @@ import 'package:bookcycle/pages/pages%20rincipales/Acceuilpage.dart';
 import 'package:flutter/material.dart';
 import 'package:bookcycle/pages/book/book_detail_page.dart';
 import 'package:bookcycle/pages/book/add_book_page.dart';
-import 'package:bookcycle/pages/admin/stats_analyse.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -47,8 +46,6 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const RegisterPage());
       case acceuil:
         return MaterialPageRoute(builder: (_) => const Acceuilpage());
-      case adminStats:
-        return MaterialPageRoute(builder: (_) => const StatsAnalysisPage());
       case bookDetail:
         final bookId = settings.arguments as String;
         return MaterialPageRoute(
@@ -60,7 +57,7 @@ class AppRoutes {
           ),
         );
       case addBook:
-        return MaterialPageRoute(builder: (_) => const AddBookPage(isGuest: true));
+        return MaterialPageRoute(builder: (_) => const AddBookPage());
       case addEnchere:
         return MaterialPageRoute(builder: (_) => const AddEncherePage(isGuest: false));
       case profile:

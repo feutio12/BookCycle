@@ -2,6 +2,7 @@ import 'package:bookcycle/navigate.dart';
 import 'package:bookcycle/pages/animation.dart';
 import 'package:bookcycle/pages/auth/loginpage.dart';
 import 'package:bookcycle/pages/homepage.dart';
+import 'package:bookcycle/utils/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -62,7 +63,11 @@ class MyApp extends StatelessWidget {
                 return _buildErrorScreen('Erreur d\'authentification');
               }
 
-              return userSnapshot.hasData ? const Homepage() : const LoginPage();
+              if (userSnapshot.hasData && AuthService.isUserLoggedIn()) {
+                return const Homepage();
+              } else {
+                return const LoginPage();
+              }
             },
           );
         },
