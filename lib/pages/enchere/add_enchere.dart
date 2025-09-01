@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:bookcycle/pages/homepage.dart';
+import 'package:bookcycle/pages/home/homepage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -124,10 +124,12 @@ class _AddEncherePageState extends State<AddEncherePage> {
   }
 
   Future<void> _saveEnchereToFirestore(Map<String, dynamic> enchereData) async {
+    // Ajouter l'enchère à la collection principale
     final docRef = await FirebaseFirestore.instance.collection('encheres')
         .add(enchereData)
         .timeout(const Duration(seconds: 10));
 
+    // Créer la sous-collection d'offres avec l'offre initiale
     await docRef.collection('offres').add({
       'montant': enchereData['prixDepart'],
       'userId': enchereData['createurId'],
@@ -135,6 +137,23 @@ class _AddEncherePageState extends State<AddEncherePage> {
       'date': FieldValue.serverTimestamp(),
       'type': 'offre_initiale',
     });
+
+    // Mettre à jour les stats de l'utilisateur
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.uid == enchereData['createurId']) {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid)
+          .update({
+        'stats.auctionsCreated': FieldValue.increment(1)
+      });
+
+      // Ajouter l'enchère à la sous-collection de l'utilisateur
+      await FirebaseFirestore.instance.collection('users').doc(user.uid)
+          .collection('auctions').doc(docRef.id).set({
+        'createdAt': FieldValue.serverTimestamp(),
+        'title': enchereData['titre'],
+        'status': 'active'
+      });
+    }
   }
 
   void _showErrorMessage(dynamic error) {

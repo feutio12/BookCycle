@@ -1,5 +1,6 @@
-import 'package:bookcycle/pages/pages%20rincipales/chatpage.dart';
+import 'package:bookcycle/pages/chats/chatpage.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -45,6 +46,10 @@ class BookDetailPage extends StatelessWidget {
     }
 
     final chatId = _generateChatId(currentUser.uid, publisherId);
+
+    // Créer la conversation dans Firestore
+    _createChatRoom(chatId, currentUser.uid, publisherId, bookTitle);
+
     final initialMessage = 'Bonjour, je suis intéressé par votre livre "$bookTitle"';
 
     Navigator.of(context).push(
@@ -57,6 +62,39 @@ class BookDetailPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _createChatRoom(String chatId, String userId1, String userId2, String bookTitle) async {
+    final firestore = FirebaseFirestore.instance;
+
+    // Vérifier si le chat existe déjà
+    final chatDoc = await firestore.collection('chats').doc(chatId).get();
+
+    if (!chatDoc.exists) {
+      // Créer le chat principal
+      await firestore.collection('chats').doc(chatId).set({
+        'participants': [userId1, userId2],
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastMessage': 'Début de la conversation',
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'aboutBook': bookTitle
+      });
+
+      // Créer les références dans les sous-collections des utilisateurs
+      await firestore.collection('users').doc(userId1)
+          .collection('chats').doc(chatId).set({
+        'otherUserId': userId2,
+        'otherUserName': publisherName,
+        'createdAt': FieldValue.serverTimestamp()
+      });
+
+      await firestore.collection('users').doc(userId2)
+          .collection('chats').doc(chatId).set({
+        'otherUserId': userId1,
+        'otherUserName': FirebaseAuth.instance.currentUser?.displayName ?? 'Utilisateur',
+        'createdAt': FieldValue.serverTimestamp()
+      });
+    }
   }
 
   String _generateChatId(String userId1, String userId2) {

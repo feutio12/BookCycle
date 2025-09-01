@@ -7,7 +7,7 @@ import '../../composants/auction_components.dart';
 import '../../composants/common_components.dart';
 import '../../composants/common_utils.dart';
 import '../auth/loginpage.dart';
-import '../enchere/add_enchere.dart';
+import 'add_enchere.dart';
 
 class AuctionPage extends StatefulWidget {
   const AuctionPage({super.key});
@@ -299,12 +299,24 @@ class _AuctionPageState extends State<AuctionPage> {
               if (cleFormulaire.currentState!.validate()) {
                 final nouvelleOffre = double.parse(controleurOffre.text);
                 try {
+                  // Mettre à jour l'enchère principale
                   await _firestore.collection('encheres').doc(enchere.id).update({
                     'prixActuel': nouvelleOffre,
-                    'nombreEncherisseurs': enchere.nombreEncherisseurs + 1,
+                    'nombreEncherisseurs': FieldValue.increment(1),
                     'dernierEncherisseur': _auth.currentUser!.uid,
-                    'derniereOffre': DateTime.now(),
+                    'derniereOffre': FieldValue.serverTimestamp(),
                   });
+
+                  // Ajouter l'offre à la sous-collection
+                  await _firestore.collection('encheres').doc(enchere.id)
+                      .collection('offres').add({
+                    'montant': nouvelleOffre,
+                    'userId': _auth.currentUser!.uid,
+                    'userName': _auth.currentUser!.displayName ?? 'Utilisateur',
+                    'date': FieldValue.serverTimestamp(),
+                    'type': 'offre_utilisateur'
+                  });
+
                   Navigator.pop(ctx);
                   AppUtils.showSuccessSnackBar(context, 'Offre soumise avec succès!');
                 } catch (e) {

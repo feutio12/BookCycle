@@ -1,7 +1,7 @@
-import 'package:bookcycle/navigate.dart';
-import 'package:bookcycle/pages/animation.dart';
+import 'package:bookcycle/pages/onboarding/navigate.dart';
+import 'package:bookcycle/pages/onboarding/animation.dart';
 import 'package:bookcycle/pages/auth/loginpage.dart';
-import 'package:bookcycle/pages/homepage.dart';
+import 'package:bookcycle/pages/home/homepage.dart';
 import 'package:bookcycle/utils/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';

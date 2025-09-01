@@ -1,6 +1,6 @@
 import 'package:bookcycle/pages/auth/registerpage.dart';
 import 'package:bookcycle/composants/CustomTextfield.dart';
-import 'package:bookcycle/pages/homepage.dart';
+import 'package:bookcycle/pages/home/homepage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';

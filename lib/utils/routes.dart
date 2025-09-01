@@ -1,18 +1,18 @@
-import 'package:bookcycle/pages/homepage.dart';
-import 'package:bookcycle/pages/pages%20rincipales/Acceuilpage.dart';
+import 'package:bookcycle/pages/home/homepage.dart';
+import 'package:bookcycle/pages/home/Acceuilpage.dart';
 import 'package:flutter/material.dart';
 import 'package:bookcycle/pages/book/book_detail_page.dart';
 import 'package:bookcycle/pages/book/add_book_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../pages/animation.dart';
+import '../pages/onboarding/animation.dart';
 import '../pages/auth/loginpage.dart';
 import '../pages/auth/registerpage.dart';
 import '../pages/enchere/add_enchere.dart';
 import '../pages/chats/chats_list_page.dart';
-import '../pages/pages rincipales/profilpage.dart';
-import '../pages/pages rincipales/chatpage.dart'; // Import ajouté
+import '../pages/profile/profilpage.dart';
+import '../pages/chats/chatpage.dart'; // Import ajouté
 
 class AppRoutes {
   // Noms de routes constants

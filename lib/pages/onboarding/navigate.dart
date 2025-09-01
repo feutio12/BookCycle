@@ -1,6 +1,6 @@
-import 'package:bookcycle/pages/homepage.dart';
+import 'package:bookcycle/pages/home/homepage.dart';
 import 'package:flutter/material.dart';
-import 'package:bookcycle/composants/composant1.dart';
+import 'package:bookcycle/pages/onboarding/composant1.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
@@ -32,13 +32,13 @@ class _OnboardingScreenState extends State<Navigate> {
     OnboardingPage(
       title: "Partagez sans limites",
       description: "Proposez vos livres à l'échange et trouvez ceux qui vous intéressent parmi des milliers d'ouvrages.",
-      image: "assets/images/Library-pana.png",
+      image: "assets/images/onboarding3.png",
       color: Color(0xFF42A5F5),
     ),
     OnboardingPage(
       title: "Rejoign la communauté",
       description: "Connectez-vous avec d'autres lecteurs, échangez vos avis et participez à des événements littéraires.",
-      image: "assets/images/ccc.jpg",
+      image: "assets/images/onboarding2.png",
       color: Color(0xFF42A5F5),
     ),
   ];
@@ -120,6 +120,7 @@ class _OnboardingScreenState extends State<Navigate> {
               right: 20,
               child: TextButton(
                 onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const Homepage()));
                   _pageController.animateToPage(
                     _pages.length - 1,
                     duration: const Duration(milliseconds: 500),

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/chats.dart';
-import '../chats/chat_service.dart';
-import '../chats/chat_utils.dart';
+import 'chat_service.dart';
+import 'chat_utils.dart' hide ChatService;
 
 class ChatPage extends StatefulWidget {
   final String chatId;
@@ -88,6 +88,14 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       await ChatService.markMessagesAsRead(widget.chatId);
+
+      // Update user's chat unread count
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .collection('chats')
+          .doc(widget.chatId)
+          .update({'unreadCount': 0});
     } catch (e) {
       debugPrint('Erreur lors du marquage des messages comme lus: $e');
     }

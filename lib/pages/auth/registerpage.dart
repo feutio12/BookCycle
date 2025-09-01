@@ -1,3 +1,4 @@
+import 'package:bookcycle/pages/home/homepage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -59,19 +60,38 @@ class _RegisterPageState extends State<RegisterPage> {
       // Déterminer le rôle de l'utilisateur
       final role = email == adminEmail ? 'admin' : 'user';
 
-      // Enregistrer les informations supplémentaires dans Firestore
-      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+      // Créer la structure utilisateur avec sous-collections
+      final userData = {
         'name': name,
         'email': email,
         'role': role,
         'createdAt': FieldValue.serverTimestamp(),
         'uid': userCredential.user!.uid,
-      });
+        'stats': {
+          'booksAdded': 0,
+          'auctionsCreated': 0,
+          'auctionsWon': 0,
+          'rating': 5.0
+        }
+      };
+
+      // Enregistrer les informations supplémentaires dans Firestore
+      await _firestore.collection('users').doc(userCredential.user!.uid).set(userData);
+
+      // Créer les sous-collections pour l'utilisateur
+      await _firestore.collection('users').doc(userCredential.user!.uid)
+          .collection('books').doc('init').set({'created': FieldValue.serverTimestamp()});
+
+      await _firestore.collection('users').doc(userCredential.user!.uid)
+          .collection('auctions').doc('init').set({'created': FieldValue.serverTimestamp()});
+
+      await _firestore.collection('users').doc(userCredential.user!.uid)
+          .collection('chats').doc('init').set({'created': FieldValue.serverTimestamp()});
 
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const LoginPage()),
+          MaterialPageRoute(builder: (_) => const Homepage()),
         );
       }
     } on FirebaseAuthException catch (e) {

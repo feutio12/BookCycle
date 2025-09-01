@@ -1,14 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:bookcycle/pages/pages%20rincipales/profilpage.dart';
-import 'package:bookcycle/pages/pages%20rincipales/chatpage.dart';
-import 'package:bookcycle/pages/pages%20rincipales/searchpage.dart';
-import '../models/chats.dart';
-import '../widgets/app_drawer.dart';
-import 'auth/loginpage.dart';
-import 'chats/chats_list_page.dart';
-import 'pages rincipales/Acceuilpage.dart';
-import 'pages rincipales/Encherepage.dart'; // Déplacé ici pour éviter l'import circulaire
+import 'package:bookcycle/pages/profile/profilpage.dart';
+import 'package:bookcycle/pages/chats/chatpage.dart';
+import '../../models/chats.dart';
+import '../../widgets/app_drawer.dart';
+import '../auth/loginpage.dart';
+import '../chats/chats_list_page.dart';
+import '../recherche/searchpage.dart';
+import 'Acceuilpage.dart';
+import '../enchere/Encherepage.dart'; // Déplacé ici pour éviter l'import circulaire
 
 class Homepage extends StatelessWidget {
   final Map<String, dynamic>? userData;

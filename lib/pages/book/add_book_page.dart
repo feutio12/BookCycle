@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:bookcycle/pages/homepage.dart';
+import 'package:bookcycle/pages/home/homepage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -37,7 +37,7 @@ class _AddBookPageState extends State<AddBookPage> {
 
   static const _categories = [
     'Science-fiction', 'Romance', 'Fantasy',
-    'Classique', 'Philosophie', 'Littérature'
+    'Classique', 'Philosophie', 'Littérature', 'autres'
   ];
 
   @override
@@ -145,9 +145,27 @@ class _AddBookPageState extends State<AddBookPage> {
   }
 
   Future<void> _saveBookToFirestore(Map<String, dynamic> bookData) async {
-    await FirebaseFirestore.instance.collection('books')
+    // Ajouter le livre à la collection principale
+    final bookRef = await FirebaseFirestore.instance.collection('books')
         .add(bookData)
         .timeout(const Duration(seconds: 10));
+
+    // Mettre à jour les stats de l'utilisateur
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid)
+          .update({
+        'stats.booksAdded': FieldValue.increment(1)
+      });
+
+      // Ajouter le livre à la sous-collection de l'utilisateur
+      await FirebaseFirestore.instance.collection('users').doc(user.uid)
+          .collection('books').doc(bookRef.id).set({
+        'addedAt': FieldValue.serverTimestamp(),
+        'title': bookData['title'],
+        'status': 'available'
+      });
+    }
   }
 
   void _showSuccessMessageAndRedirect() {

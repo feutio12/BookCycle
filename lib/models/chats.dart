@@ -1,25 +1,3 @@
-class ChatDiscussion {
-  final String chatId;
-  final List<String> participants;
-  final String otherUserId;
-  final String otherUserName;
-  final String lastMessage;
-  final DateTime lastMessageTime;
-  final String lastMessageSenderId;
-  final int unreadCount;
-
-  ChatDiscussion({
-    required this.chatId,
-    required this.participants,
-    required this.otherUserId,
-    required this.otherUserName,
-    required this.lastMessage,
-    required this.lastMessageTime,
-    required this.lastMessageSenderId,
-    required this.unreadCount,
-  });
-}
-
 class ChatMessage {
   final String id;
   final String senderId;
@@ -47,7 +25,29 @@ class ChatMessage {
     } else if (messageDay == today.subtract(const Duration(days: 1))) {
       return 'Hier';
     } else {
-      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+      return '${timestamp.day.toString().padLeft(2, '0')}/${timestamp.month.toString().padLeft(2, '0')}';
     }
   }
+}
+
+class ChatDiscussion {
+  final String chatId;
+  final List<String> participants;
+  final String otherUserId;
+  final String otherUserName;
+  final String lastMessage;
+  final DateTime lastMessageTime;
+  final String lastMessageSenderId;
+  final int unreadCount;
+
+  ChatDiscussion({
+    required this.chatId,
+    required this.participants,
+    required this.otherUserId,
+    required this.otherUserName,
+    required this.lastMessage,
+    required this.lastMessageTime,
+    required this.lastMessageSenderId,
+    required this.unreadCount,
+  });
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bookcycle/composants/books_page.dart';
+import 'package:bookcycle/pages/book/books_page.dart';
 
 class Header extends StatelessWidget {
   final String name;

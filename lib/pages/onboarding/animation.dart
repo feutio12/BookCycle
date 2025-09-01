@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bookcycle/navigate.dart';
+import 'package:bookcycle/pages/onboarding/navigate.dart';
 import 'dart:math';
 
 class SplashAnimation extends StatefulWidget {

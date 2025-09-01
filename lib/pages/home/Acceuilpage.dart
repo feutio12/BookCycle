@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart' hide SearchBar;
-import 'package:bookcycle/composants/books_page.dart';
+import 'package:bookcycle/pages/book/books_page.dart';
 import 'package:bookcycle/pages/auth/loginpage.dart';
 import 'package:bookcycle/pages/book/add_book_page.dart';
-import 'package:bookcycle/pages/pages%20rincipales/chatpage.dart';
+import 'package:bookcycle/pages/chats/chatpage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';

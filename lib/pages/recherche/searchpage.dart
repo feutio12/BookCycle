@@ -5,7 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../../composants/search_content.dart';
+import 'search_content.dart';
 import '../book/book_detail_page.dart';
 
 class SearchPage extends StatefulWidget {

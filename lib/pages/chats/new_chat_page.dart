@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../composants/common_components.dart';
-import '../pages rincipales/chatpage.dart';
+import 'chatpage.dart';
 import 'chat_service.dart';
 class NewChatPage extends StatelessWidget {
   const NewChatPage({super.key});
