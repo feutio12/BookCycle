@@ -11,6 +11,9 @@ class BooksPage extends StatelessWidget {
   final ColorScheme colorScheme;
   final TextTheme textTheme;
   final String currentUserId;
+  final Function(String) onDeleteBook;
+  final Function(Map<String, dynamic>) onEditBook;
+  final Function(String, String, String) onContactPublisher; // Nouveau callback
 
   const BooksPage({
     super.key,
@@ -23,6 +26,9 @@ class BooksPage extends StatelessWidget {
     required this.colorScheme,
     required this.textTheme,
     required this.currentUserId,
+    required this.onDeleteBook,
+    required this.onEditBook,
+    required this.onContactPublisher, // Nouveau paramètre
   });
 
   @override
@@ -30,43 +36,45 @@ class BooksPage extends StatelessWidget {
     return Column(
       children: [
         // En-tête avec titre et filtres
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Découvrez des livres',
-                style: textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+        SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Découvrez des livres',
+                  style: textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: filters.map((filter) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: FilterChip(
-                        label: Text(filter),
-                        selected: selectedFilter == filter,
-                        onSelected: (bool selected) {
-                          onFilterChanged(filter);
-                        },
-                        selectedColor: colorScheme.primaryContainer,
-                        checkmarkColor: colorScheme.onPrimaryContainer,
-                        labelStyle: TextStyle(
-                          color: selectedFilter == filter
-                              ? colorScheme.onPrimaryContainer
-                              : null,
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: filters.map((filter) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: FilterChip(
+                          label: Text(filter),
+                          selected: selectedFilter == filter,
+                          onSelected: (bool selected) {
+                            onFilterChanged(filter);
+                          },
+                          selectedColor: colorScheme.primaryContainer,
+                          checkmarkColor: colorScheme.onPrimaryContainer,
+                          labelStyle: TextStyle(
+                            color: selectedFilter == filter
+                                ? colorScheme.onPrimaryContainer
+                                : null,
+                          ),
                         ),
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
 
@@ -114,6 +122,9 @@ class BooksPage extends StatelessWidget {
                   textTheme: textTheme,
                   onLikePressed: onLikePressed,
                   currentUserId: currentUserId,
+                  onDeleteBook: onDeleteBook,
+                  onEditBook: onEditBook,
+                  onContactPublisher: onContactPublisher, // Nouveau callback
                 ),
               );
             },

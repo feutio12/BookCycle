@@ -1,14 +1,16 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 
 class SearchComponents {
   // Carte de livre
-  static Widget buildBookCard(Map<String, dynamic> book, {required VoidCallback onTap}) {
+  static Widget buildBookCard(Map<String, dynamic> book, {required VoidCallback onTap, String? heroTag}) {
     final title = book['title'] ?? 'Titre inconnu';
     final author = book['author'] ?? 'Auteur inconnu';
     final imageUrl = book['imageUrl'] ?? '';
     final category = book['category'] ?? '';
+    final bookId = book['id'] ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -33,37 +35,20 @@ class SearchComponents {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Image du livre
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 80,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: imageUrl.isNotEmpty
-                        ? CachedNetworkImage(
-                      imageUrl: imageUrl,
+                // Image du livre avec Hero
+                Hero(
+                  tag: heroTag ?? 'book-$bookId',
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
                       width: 80,
                       height: 110,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      errorWidget: (context, url, error) => Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(Icons.book_rounded, color: Colors.grey[400]),
-                      ),
-                    )
-                        : Icon(Icons.book_rounded, size: 40, color: Colors.grey[400]),
+                      child: _buildBookImage(imageUrl, bookId: bookId),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -132,6 +117,55 @@ class SearchComponents {
           ),
         ),
       ),
+    );
+  }
+
+  static Widget _buildBookImage(String imageUrl, {String bookId = ''}) {
+    if (imageUrl.isEmpty) {
+      return _buildPlaceholder();
+    }
+
+    try {
+      // Check if it's base64 encoded
+      if (imageUrl.startsWith('data:image') || imageUrl.length > 1000) {
+        // Handle base64 images
+        try {
+          final base64Data = imageUrl.contains(',')
+              ? imageUrl.split(',').last
+              : imageUrl;
+          return Image.memory(
+            base64Decode(base64Data),
+            width: 80,
+            height: 110,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+          );
+        } catch (e) {
+          return _buildPlaceholder();
+        }
+      } else {
+        // Handle network images
+        return CachedNetworkImage(
+          imageUrl: imageUrl,
+          width: 80,
+          height: 110,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => _buildPlaceholder(),
+          errorWidget: (context, url, error) => _buildPlaceholder(),
+        );
+      }
+    } catch (e) {
+      return _buildPlaceholder();
+    }
+  }
+
+  static Widget _buildPlaceholder() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(Icons.book_rounded, size: 40, color: Colors.grey[400]),
     );
   }
 
@@ -217,7 +251,7 @@ class SearchComponents {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.purple[600]!, Colors.blue[700]!],
+              colors: [Colors.blue[400]!, Colors.blue[700]!],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -276,7 +310,7 @@ class SearchComponents {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
-                        colors: [Colors.purple[400]!, Colors.blue[500]!],
+                        colors: [Colors.blue[400]!, Colors.blue[700]!],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),

@@ -19,39 +19,41 @@ class Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1976D2),
-            Color(0xFF42A5F5),
-          ],
+    return SingleChildScrollView(
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1976D2),
+              Color(0xFF42A5F5),
+            ],
+          ),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.only(left: 20, top: 70, right: 20, bottom: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Bienvenue${name.isNotEmpty ? ', $name' : ''}',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 20, top: 70, right: 20, bottom: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Bienvenue${name.isNotEmpty ? ', $name' : ''}',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _getWelcomeMessage(),
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white70,
+              const SizedBox(height: 8),
+              Text(
+                _getWelcomeMessage(),
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.white70,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -70,6 +72,9 @@ class BookList extends StatelessWidget {
   final String currentUserId;
   final bool isLoading;
   final ScrollController scrollController;
+  final Function(String) onDeleteBook;
+  final Function(Map<String, dynamic>) onEditBook;
+  final Function(String, String, String) onContactPublisher; // Nouveau callback
 
   const BookList({
     super.key,
@@ -84,6 +89,9 @@ class BookList extends StatelessWidget {
     required this.currentUserId,
     required this.isLoading,
     required this.scrollController,
+    required this.onDeleteBook,
+    required this.onEditBook,
+    required this.onContactPublisher, // Nouveau paramètre
   });
 
   @override
@@ -106,6 +114,9 @@ class BookList extends StatelessWidget {
       colorScheme: colorScheme,
       textTheme: textTheme,
       currentUserId: currentUserId,
+      onDeleteBook: onDeleteBook,
+      onEditBook: onEditBook,
+      onContactPublisher: onContactPublisher, // Passez le nouveau callback
     );
   }
 

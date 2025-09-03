@@ -88,14 +88,6 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       await ChatService.markMessagesAsRead(widget.chatId);
-
-      // Update user's chat unread count
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser.uid)
-          .collection('chats')
-          .doc(widget.chatId)
-          .update({'unreadCount': 0});
     } catch (e) {
       debugPrint('Erreur lors du marquage des messages comme lus: $e');
     }
@@ -165,21 +157,23 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.otherUserName,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  "En ligne",
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.green,
-                    fontWeight: FontWeight.w500,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.otherUserName,
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                ),
-              ],
+                  Text(
+                    "En ligne",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.green,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

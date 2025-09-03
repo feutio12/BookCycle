@@ -19,18 +19,12 @@ class ChatUtils {
   }
 
   static String getChatTitle(Map<String, dynamic> chatData, String currentUserId) {
-    if (chatData['otherUserName'] != null && chatData['otherUserName'].isNotEmpty) {
-      return chatData['otherUserName'];
-    }
-
     final participants = List<String>.from(chatData['participants'] ?? []);
-    participants.remove(currentUserId);
+    final otherParticipants = participants.where((id) => id != currentUserId).toList();
 
-    if (participants.isNotEmpty) {
-      return participants[0]; // Fallback to user ID if name not available
-    }
+    if (otherParticipants.isEmpty) return 'Discussion';
 
-    return 'Utilisateur inconnu';
+    return chatData['otherUserName'] ?? 'Utilisateur';
   }
 }
 
@@ -48,68 +42,106 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-        decoration: BoxDecoration(
-          color: isMe
-              ? Theme.of(context).colorScheme.primary
-              : Colors.grey[300],
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(0),
-            bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(16),
+    final theme = Theme.of(context);
+    final isSystemMessage = message.senderId == 'system';
+
+    if (isSystemMessage) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              message.content,
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
+            ),
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!isMe && message.senderId != 'system')
-              Text(
-                message.senderName,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.secondary,
-                  fontSize: 12,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            Text(
-              message.content,
-              style: TextStyle(
-                color: isMe ? Colors.white : Colors.black,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          if (!isMe)
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.blue,
+              child: Text(
+                message.senderName.isNotEmpty
+                    ? message.senderName[0].toUpperCase()
+                    : '?',
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment:
+              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                Text(
-                  message.formattedTime,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isMe ? Colors.white70 : Colors.grey[600],
-                  ),
-                ),
-                if (isMe)
+                if (!isMe)
                   Padding(
-                    padding: const EdgeInsets.only(left: 4.0),
-                    child: Icon(
-                      isRead ? Icons.done_all : Icons.done,
-                      size: 12,
-                      color: isRead ? Colors.blue : Colors.white70,
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      message.senderName,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      ),
                     ),
                   ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isMe
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    message.content,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: isMe
+                          ? theme.colorScheme.onPrimary
+                          : theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment:
+                  isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                  children: [
+                    Text(
+                      ChatUtils.formatMessageTime(message.timestamp),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      ),
+                    ),
+                    if (isMe) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        isRead ? Icons.done_all : Icons.done,
+                        size: 16,
+                        color: isRead ? Colors.blue : Colors.grey,
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+          if (isMe) const SizedBox(width: 8),
+        ],
       ),
     );
   }
@@ -130,69 +162,49 @@ class MessageInputField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.attach_file),
+            onPressed: () {},
+          ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'Tapez votre message...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+              maxLines: null,
+              onSubmitted: (_) => onSend(),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.emoji_emotions_outlined),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: isSending
+                ? const CircularProgressIndicator()
+                : const Icon(Icons.send),
+            onPressed: isSending ? null : onSend,
           ),
         ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            IconButton(onPressed: () {}, icon: const Icon(Icons.add)),
-            IconButton(onPressed: () {}, icon: const Icon(Icons.photo_camera)),
-            Expanded(
-              child: Container(
-                constraints: const BoxConstraints(maxHeight: 100),
-                child: TextField(
-                  controller: controller,
-                  textCapitalization: TextCapitalization.sentences,
-                  minLines: 1,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    hintText: "Tapez un message…",
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surfaceVariant,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: onSend,
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                ),
-                child: isSending
-                    ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.blue,
-                  ),
-                )
-                    : const Icon(Icons.send),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

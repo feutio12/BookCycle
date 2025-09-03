@@ -1,11 +1,12 @@
+import 'dart:convert';
 import 'package:bookcycle/pages/chats/chatpage.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:bookcycle/pages/chats/chat_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../../composants/common_components.dart';
 import '../../composants/common_utils.dart';
+import 'edit_book_page.dart';
 
 class BookDetailPage extends StatelessWidget {
   final Map<String, dynamic> book;
@@ -18,7 +19,7 @@ class BookDetailPage extends StatelessWidget {
     required this.book,
     required this.publisherId,
     required this.publisherName,
-    required this.bookId,
+    required this.bookId, required publisherEmail,
   });
 
   String _getString(String key, [String defaultValue = 'Non spécifié']) {
@@ -29,7 +30,7 @@ class BookDetailPage extends StatelessWidget {
     return (book[key] as num?)?.toDouble() ?? defaultValue;
   }
 
-  void _startChatWithPublisher(BuildContext context, String bookTitle) {
+  Future<void> _startChatWithPublisher(BuildContext context, String bookTitle) async {
     final currentUser = FirebaseAuth.instance.currentUser;
 
     if (currentUser == null) {
@@ -45,81 +46,154 @@ class BookDetailPage extends StatelessWidget {
       return;
     }
 
-    final chatId = _generateChatId(currentUser.uid, publisherId);
-
-    // Créer la conversation dans Firestore
-    _createChatRoom(chatId, currentUser.uid, publisherId, bookTitle);
-
+    final chatId = ChatService.generateChatId(currentUser.uid, publisherId);
     final initialMessage = 'Bonjour, je suis intéressé par votre livre "$bookTitle"';
 
-    Navigator.of(context).push(
+    try {
+      // Créer le chat s'il n'existe pas
+      await ChatService.createChatIfNeeded(
+        chatId: chatId,
+        otherUserId: publisherId,
+        otherUserName: publisherName,
+      );
+
+      // Naviguer vers la page de chat
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ChatPage(
+            chatId: chatId,
+            otherUserId: publisherId,
+            otherUserName: publisherName,
+            initialMessage: initialMessage,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la création du chat: $e')),
+      );
+    }
+  }
+
+  Future<void> _editBook(BuildContext context) async {
+    // Navigation vers la page d'édition du livre
+    Navigator.push(
+      context,
       MaterialPageRoute(
-        builder: (context) => ChatPage(
-          chatId: chatId,
-          otherUserId: publisherId,
-          otherUserName: publisherName,
-          initialMessage: initialMessage,
+        builder: (context) => EditBookPage(
+          bookId: bookId,
+          bookData: book,
         ),
       ),
     );
   }
 
-  Future<void> _createChatRoom(String chatId, String userId1, String userId2, String bookTitle) async {
-    final firestore = FirebaseFirestore.instance;
+  Future<void> _deleteBook(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmer la suppression'),
+        content: const Text('Êtes-vous sûr de vouloir supprimer ce livre ? Cette action est irréversible.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
 
-    // Vérifier si le chat existe déjà
-    final chatDoc = await firestore.collection('chats').doc(chatId).get();
+    if (confirmed == true) {
+      try {
+        // Supprimer le livre de Firestore
+        await FirebaseFirestore.instance
+            .collection('books')
+            .doc(bookId)
+            .delete();
 
-    if (!chatDoc.exists) {
-      // Créer le chat principal
-      await firestore.collection('chats').doc(chatId).set({
-        'participants': [userId1, userId2],
-        'createdAt': FieldValue.serverTimestamp(),
-        'lastMessage': 'Début de la conversation',
-        'lastMessageTime': FieldValue.serverTimestamp(),
-        'aboutBook': bookTitle
-      });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Livre supprimé avec succès')),
+        );
 
-      // Créer les références dans les sous-collections des utilisateurs
-      await firestore.collection('users').doc(userId1)
-          .collection('chats').doc(chatId).set({
-        'otherUserId': userId2,
-        'otherUserName': publisherName,
-        'createdAt': FieldValue.serverTimestamp()
-      });
-
-      await firestore.collection('users').doc(userId2)
-          .collection('chats').doc(chatId).set({
-        'otherUserId': userId1,
-        'otherUserName': FirebaseAuth.instance.currentUser?.displayName ?? 'Utilisateur',
-        'createdAt': FieldValue.serverTimestamp()
-      });
+        // Retourner à la page précédente
+        Navigator.of(context).pop();
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la suppression: $e')),
+        );
+      }
     }
   }
 
-  String _generateChatId(String userId1, String userId2) {
-    final ids = [userId1, userId2]..sort();
-    return 'chat_${ids[0]}_${ids[1]}';
+  Widget _buildBookImage(String? imageUrl, {String? heroTag}) {
+    final imageWidget = (imageUrl == null || imageUrl.isEmpty || imageUrl == "100")
+        ? _buildPlaceholder()
+        : _buildImageFromBase64(imageUrl);
+
+    return heroTag != null
+        ? Hero(tag: heroTag, child: imageWidget)
+        : imageWidget;
   }
 
-  Widget _buildBookHeader(ThemeData theme, String imageUrl, String title, double rating) {
+  Widget _buildImageFromBase64(String imageUrl) {
+    try {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.memory(
+          base64Decode(imageUrl),
+          width: 90,
+          height: 130,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+        ),
+      );
+    } catch (e) {
+      return _buildPlaceholder();
+    }
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      width: 90,
+      height: 130,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.grey[100]!,
+            Colors.grey[200]!,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Icon(Icons.menu_book_rounded,
+          color: Colors.grey[400],
+          size: 40),
+    );
+  }
+
+  Widget _buildBookHeader(ThemeData theme, String imageUrl, String title, double rating, {String? heroTag}) {
     final author = _getString('author', 'Auteur inconnu');
+    final publisherEmail = _getString('publisherEmail', 'Email non disponible');
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final isOwner = currentUser != null && currentUser.email == publisherEmail;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: imageUrl.isNotEmpty
-              ? CachedNetworkImage(
-            imageUrl: imageUrl,
-            width: 120,
-            height: 180,
-            fit: BoxFit.cover,
-            errorWidget: (context, error, stackTrace) => _buildPlaceholderImage(),
-          )
-              : _buildPlaceholderImage(),
-        ),
+        _buildBookImage(imageUrl, heroTag: heroTag),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -144,6 +218,13 @@ class BookDetailPage extends StatelessWidget {
                 'Publié par $publisherName',
                 style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary),
               ),
+              if (isOwner) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '(Votre publication)',
+                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.green),
+                ),
+              ],
             ],
           ),
         ),
@@ -151,21 +232,54 @@ class BookDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholderImage() {
-    return Container(
-      width: 120,
-      height: 180,
-      color: Colors.grey[200],
-      child: const Icon(Icons.book, size: 50),
-    );
-  }
+  Widget _buildActionButtons(BuildContext context, String bookTitle) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final publisherEmail = _getString('publisherEmail', '');
+    final isOwner = currentUser != null && currentUser.email == publisherEmail;
 
-  Widget _buildContactButton(BuildContext context, String bookTitle) {
-    return PrimaryButton(
-      text: 'Contacter le publicateur',
-      onPressed: () => _startChatWithPublisher(context, bookTitle),
-      icon: Icons.chat,
-    );
+    if (isOwner) {
+      return Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.edit),
+              label: const Text('Modifier'),
+              onPressed: () => _editBook(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.delete),
+              label: const Text('Supprimer'),
+              onPressed: () => _deleteBook(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      return PrimaryButton(
+        text: 'Contacter le publicateur',
+        onPressed: () => _startChatWithPublisher(context, bookTitle),
+        icon: Icons.chat,
+      );
+    }
   }
 
   Widget _buildSectionTitle(String title, ThemeData theme) {
@@ -187,9 +301,11 @@ class BookDetailPage extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6)),
             ),
           ),
-          Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+            ),
           ),
         ],
       ),
@@ -204,17 +320,53 @@ class BookDetailPage extends StatelessWidget {
     final category = _getString('category');
     final imageUrl = _getString('imageUrl', '');
     final rating = _getDouble('rating');
+    final publisherEmail = _getString('publisherEmail', '');
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final isOwner = currentUser != null && currentUser.email == publisherEmail;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Fonctionnalité de partage à implémenter')),
+          if (!isOwner) // Afficher le bouton partager seulement si l'utilisateur n'est pas le propriétaire
+            IconButton(
+              icon: const Icon(Icons.share),
+              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Fonctionnalité de partage à implémenter')),
+              ),
             ),
-          ),
+          if (isOwner) // Afficher le menu de modification/suppression seulement si l'utilisateur est le propriétaire
+            PopupMenuButton(
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _editBook(context);
+                } else if (value == 'delete') {
+                  _deleteBook(context);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text('Modifier'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Supprimer'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -222,9 +374,9 @@ class BookDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildBookHeader(theme, imageUrl, title, rating),
+            _buildBookHeader(theme, imageUrl, title, rating, heroTag: 'book-$bookId'),
             const SizedBox(height: 24),
-            _buildContactButton(context, title),
+            _buildActionButtons(context, title),
             const SizedBox(height: 24),
             _buildSectionTitle('Description', theme),
             const SizedBox(height: 8),

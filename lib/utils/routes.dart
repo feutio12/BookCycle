@@ -12,7 +12,7 @@ import '../pages/auth/registerpage.dart';
 import '../pages/enchere/add_enchere.dart';
 import '../pages/chats/chats_list_page.dart';
 import '../pages/profile/profilpage.dart';
-import '../pages/chats/chatpage.dart'; // Import ajouté
+import '../pages/chats/chatpage.dart';
 
 class AppRoutes {
   // Noms de routes constants
@@ -28,7 +28,7 @@ class AppRoutes {
   static const String adminStats = '/admin-stats';
   static const String exchange = '/exchange';
   static const String chats = '/chats';
-  static const String chatPage = '/chat-page'; // Nouvelle route ajoutée
+  static const String chatPage = '/chat-page';
 
   // Référence Firestore
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -47,23 +47,23 @@ class AppRoutes {
       case acceuil:
         return MaterialPageRoute(builder: (_) => const Acceuilpage());
       case bookDetail:
-        final bookId = settings.arguments as String;
+        final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(
           builder: (_) => BookDetailPage(
-            bookId: bookId,
-            book: {},
-            publisherId: '',
-            publisherName: '',
+            bookId: args['bookId'],
+            book: args['book'],
+            publisherId: args['publisherId'],
+            publisherName: args['publisherName'], publisherEmail: null,
           ),
         );
       case addBook:
-        return MaterialPageRoute(builder: (_) => const AddBookPage());
+        return MaterialPageRoute(builder: (_) => const AddBookPage(book: {},));
       case addEnchere:
         return MaterialPageRoute(builder: (_) => const AddEncherePage(isGuest: false));
       case profile:
         return MaterialPageRoute(builder: (_) => ProfilePage(user: FirebaseAuth.instance.currentUser));
       case chats:
-        return MaterialPageRoute(builder: (_) => const DiscussionsListPage(discussions: [],));
+        return MaterialPageRoute(builder: (_) => const DiscussionsListPage());
       case chatPage:
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(
@@ -71,13 +71,13 @@ class AppRoutes {
             chatId: args['chatId'],
             otherUserId: args['otherUserId'],
             otherUserName: args['otherUserName'],
-            initialMessage: '',
+            initialMessage: args['initialMessage'] ?? '',
           ),
         );
       case exchange:
         final exchangeData = settings.arguments as Map<String, dynamic>?;
         return MaterialPageRoute(
-          builder: (_) => const DiscussionsListPage(discussions: [],),
+          builder: (_) => const DiscussionsListPage(),
         );
       default:
         return MaterialPageRoute(
@@ -132,11 +132,31 @@ class AppRoutes {
     }
   }
 
+  // Navigation vers la page de détail du livre
+  static void navigateToBookDetail(BuildContext context, {
+    required String bookId,
+    required Map<String, dynamic> book,
+    required String publisherId,
+    required String publisherName,
+  }) {
+    Navigator.pushNamed(
+      context,
+      bookDetail,
+      arguments: {
+        'bookId': bookId,
+        'book': book,
+        'publisherId': publisherId,
+        'publisherName': publisherName,
+      },
+    );
+  }
+
   // Navigation vers la page de chat
   static void navigateToChatPage(BuildContext context, {
     required String chatId,
     required String otherUserId,
     required String otherUserName,
+    String? initialMessage,
   }) {
     Navigator.pushNamed(
       context,
@@ -145,7 +165,32 @@ class AppRoutes {
         'chatId': chatId,
         'otherUserId': otherUserId,
         'otherUserName': otherUserName,
+        'initialMessage': initialMessage,
       },
     );
+  }
+
+  // Navigation vers la liste des discussions
+  static void navigateToChatsList(BuildContext context) {
+    Navigator.pushNamed(context, chats);
+  }
+
+  // Méthode de déconnexion globale
+  static Future<void> logout(BuildContext context) async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.login,
+              (route) => false
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la déconnexion: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

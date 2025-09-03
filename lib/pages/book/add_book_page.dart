@@ -7,13 +7,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import '../../composants/common_components.dart';
-import '../../composants/common_utils.dart';
 
 class AddBookPage extends StatefulWidget {
-  const AddBookPage({super.key,});
+  final Map<String, dynamic>? book;
+  final String? bookId;
+
+  const AddBookPage({super.key, this.book, this.bookId});
 
   @override
   State<AddBookPage> createState() => _AddBookPageState();
@@ -27,22 +26,33 @@ class _AddBookPageState extends State<AddBookPage> {
     'description': TextEditingController(),
     'price': TextEditingController(),
     'pages': TextEditingController(),
-    'rating': TextEditingController(),
   };
 
   File? _imageFile;
   String? _selectedCategory;
+  String? _selectedCondition;
+  String? _selectedType;
   bool _isLoading = false;
-  String? _uploadError;
+  bool _isEditing = false;
+  String? _existingImageBase64;
 
   static const _categories = [
-    'Science-fiction', 'Romance', 'Fantasy',
+    'Science-fiction', 'Romance', 'Fantasy', 'Comedie',
     'Classique', 'Philosophie', 'Littérature', 'autres'
+  ];
+
+  static const _conditions = [
+    'Neuf', 'Très bon état', 'Bon état', 'État acceptable'
+  ];
+
+  static const _types = [
+    'Échange', 'Vente', 'Don'
   ];
 
   @override
   void initState() {
     super.initState();
+    _initializeForm();
   }
 
   @override
@@ -51,158 +61,216 @@ class _AddBookPageState extends State<AddBookPage> {
     super.dispose();
   }
 
+  void _initializeForm() {
+    if (widget.book != null) {
+      _isEditing = true;
+
+      _controllers['title']!.text = widget.book!['title'] ?? '';
+      _controllers['author']!.text = widget.book!['author'] ?? '';
+      _controllers['description']!.text = widget.book!['description'] ?? '';
+      _controllers['price']!.text = widget.book!['price']?.toString() ?? '0';
+      _controllers['pages']!.text = widget.book!['pages']?.toString() ?? '0';
+
+      _selectedCategory = widget.book!['category'];
+      _selectedCondition = widget.book!['condition'];
+      _selectedType = widget.book!['type'];
+      _existingImageBase64 = widget.book!['imageUrl'];
+    }
+  }
+
   Future<void> _pickImage() async {
     try {
-      final file = await AppUtils.pickImage();
-      if (file != null) {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+      if (pickedFile != null) {
         setState(() {
-          _imageFile = file;
-          _uploadError = null;
+          _imageFile = File(pickedFile.path);
+          _existingImageBase64 = null; // Effacer l'image existante si nouvelle image sélectionnée
         });
       }
     } catch (e) {
-      AppUtils.showErrorSnackBar(context, e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
     }
   }
 
   Future<String?> _convertImageToBase64() async {
-    return await AppUtils.convertImageToBase64(_imageFile);
+    if (_imageFile != null) {
+      try {
+        final bytes = await _imageFile!.readAsBytes();
+        return base64Encode(bytes);
+      } catch (e) {
+        return null;
+      }
+    }
+    return _existingImageBase64;
   }
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_imageFile == null) {
-      AppUtils.showErrorSnackBar(context, 'Veuillez ajouter une image');
-      return;
-    }
-    if (_selectedCategory == null) {
-      AppUtils.showErrorSnackBar(context, 'Veuillez sélectionner une catégorie');
+
+    if (_imageFile == null && _existingImageBase64 == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez ajouter une image')),
+      );
       return;
     }
 
+    if (_selectedCategory == null || _selectedCondition == null || _selectedType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez remplir tous les champs')),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
       final imageBase64 = await _convertImageToBase64();
-      if (imageBase64 == null) return;
-
-      final bookData = await _prepareBookData(imageBase64);
-      await _saveBookToFirestore(bookData);
-
-      _showSuccessMessageAndRedirect();
-    } catch (e) {
-      _showErrorMessage(e);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<Map<String, dynamic>> _prepareBookData(String imageBase64) async {
-    String publisherName = 'Anonyme';
+      if (imageBase64 == null) throw Exception('Erreur avec l\'image');
 
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        publisherName = user.displayName ?? 'Anonyme';
+      if (user == null) throw Exception('Utilisateur non connecté');
 
-        // Si l'utilisateur n'a pas de nom défini, essayez de récupérer depuis Firestore
-        if (publisherName == 'Anonyme') {
-          try {
-            final userDoc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .get();
+      final bookData = {
+        'title': _controllers['title']!.text.trim(),
+        'author': _controllers['author']!.text.trim(),
+        'description': _controllers['description']!.text.trim(),
+        'price': int.parse(_controllers['price']!.text),
+        'pages': int.parse(_controllers['pages']!.text),
+        'category': _selectedCategory!,
+        'condition': _selectedCondition!,
+        'type': _selectedType!,
+        'imageUrl': imageBase64,
+        'publisherEmail': user.email,
+        'userId': user.uid,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
 
-            if (userDoc.exists && userDoc.data() != null) {
-              final userData = userDoc.data()!;
-              publisherName = userData['name'] ?? userData['username'] ?? 'Anonyme';
-            }
-          } catch (e) {
-            print('Erreur lors de la récupération du nom: $e');
+      if (_isEditing && widget.bookId != null) {
+        // Mode édition - Vérifier que l'utilisateur est le propriétaire
+        final bookDoc = await FirebaseFirestore.instance
+            .collection('books')
+            .doc(widget.bookId)
+            .get();
+
+        if (bookDoc.exists) {
+          final existingBook = bookDoc.data() as Map<String, dynamic>;
+          if (existingBook['publisherEmail'] != user.email) {
+            throw Exception('Vous n\'êtes pas autorisé à modifier ce livre');
           }
         }
 
-    }
+        await FirebaseFirestore.instance
+            .collection('books')
+            .doc(widget.bookId)
+            .update(bookData);
+      } else {
+        // Mode ajout
+        bookData['createdAt'] = FieldValue.serverTimestamp();
+        bookData['likes'] = 0;
+        bookData['isPopular'] = false;
+        bookData['rating'] = 0.0;
 
-    final bookData = {
-      'pages': int.tryParse(_controllers['pages']!.text) ?? 100,
-      'price': int.tryParse(_controllers['price']!.text) ?? 100,
-      'rating': int.tryParse(_controllers['rating']!.text) ?? 100,
-      'title': _controllers['title']!.text.trim().isEmpty ? "100" : _controllers['title']!.text.trim(),
-      'author': _controllers['author']!.text.trim().isEmpty ? "100" : _controllers['author']!.text.trim(),
-      'category': _selectedCategory ?? "100",
-      'createdAt': FieldValue.serverTimestamp(),
-      'description': _controllers['description']!.text.trim().isEmpty
-          ? "200" : _controllers['description']!.text.trim(),
-      'imageUrl': imageBase64.isEmpty ? "100" : imageBase64,
-      'isPopular': false,
-      'likes': 0,
-      'publisherName': publisherName,
-    };
+        await FirebaseFirestore.instance
+            .collection('books')
+            .add(bookData);
+      }
 
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isEditing ? 'Livre modifié avec succès!' : 'Livre publié avec succès!'),
+          backgroundColor: Colors.green,
+        ),
+      );
 
-    return bookData;
-  }
-
-  Future<void> _saveBookToFirestore(Map<String, dynamic> bookData) async {
-    // Ajouter le livre à la collection principale
-    final bookRef = await FirebaseFirestore.instance.collection('books')
-        .add(bookData)
-        .timeout(const Duration(seconds: 10));
-
-    // Mettre à jour les stats de l'utilisateur
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid)
-          .update({
-        'stats.booksAdded': FieldValue.increment(1)
-      });
-
-      // Ajouter le livre à la sous-collection de l'utilisateur
-      await FirebaseFirestore.instance.collection('users').doc(user.uid)
-          .collection('books').doc(bookRef.id).set({
-        'addedAt': FieldValue.serverTimestamp(),
-        'title': bookData['title'],
-        'status': 'available'
-      });
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
-  void _showSuccessMessageAndRedirect() {
-    AppUtils.showSuccessSnackBar(context, 'Livre ajouté avec succès');
-
-    // Redirection vers la page d'accueil
-    Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const Homepage()),
-            (route) => false
+  Widget _buildImagePicker() {
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        height: 200,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: _imageFile != null
+            ? Image.file(_imageFile!, fit: BoxFit.cover)
+            : _existingImageBase64 != null && _existingImageBase64 != "100"
+            ? Image.memory(base64Decode(_existingImageBase64!), fit: BoxFit.cover)
+            : Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.camera_alt, size: 50, color: Colors.grey[400]),
+            const SizedBox(height: 8),
+            Text(
+              'Ajouter une image',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  void _showErrorMessage(dynamic error) {
-    String message = 'Erreur inconnue';
-    if (error is FirebaseException) {
-      message = 'Erreur Firestore: ${error.message}';
-    } else if (error is TimeoutException) {
-      message = 'Timeout - Vérifiez votre connexion';
-    } else {
-      message = 'Erreur: ${error.toString()}';
-    }
-    AppUtils.showErrorSnackBar(context, message);
+  Widget _buildTextField(String label, String key, {bool isNumber = false, int maxLines = 1}) {
+    return TextFormField(
+      controller: _controllers[key],
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      maxLines: maxLines,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Ce champ est requis';
+        }
+        if (isNumber && int.tryParse(value) == null) {
+          return 'Veuillez entrer un nombre valide';
+        }
+        return null;
+      },
+    );
   }
 
-  Widget _buildFormField(String label, String key, {bool isNumber = false, required int maxLines}) {
-    return FormTextField(
-      controller: _controllers[key]!,
-      label: label,
-      isNumber: isNumber,
+  Widget _buildDropdown(String label, List<String> items, String? value, Function(String?) onChanged) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      items: items.map((String item) {
+        return DropdownMenuItem<String>(
+          value: item,
+          child: Text(item),
+        );
+      }).toList(),
+      onChanged: onChanged,
       validator: (value) {
-        if (value == null || value.isEmpty) return 'Ce champ est requis';
-        if (isNumber && int.tryParse(value) == null) return 'Entrez un nombre valide';
-        if (key == 'rating') {
-          final rating = int.tryParse(value);
-          if (rating == null || rating < 0 || rating > 100) {
-            return 'Entrez une note entre 0 et 100';
-          }
+        if (value == null) {
+          return 'Veuillez sélectionner une option';
         }
         return null;
       },
@@ -211,85 +279,78 @@ class _AddBookPageState extends State<AddBookPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.backgroundColor,
-        body: LoadingIndicator(message: 'Publication en cours...'),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ajouter un livre'),
-        backgroundColor: AppColors.primaryBlue,
+        title: Text(_isEditing ? 'Ajouter un livre' : 'Modifier le livre'),
+        backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
-      backgroundColor: AppColors.backgroundColor,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      backgroundColor: Colors.grey[100],
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
             children: [
-              ImagePickerWidget(
-                imageFile: _imageFile,
-                onTap: _pickImage,
-                errorMessage: _uploadError,
-              ),
+              // Image picker
+              _buildImagePicker(),
+              const SizedBox(height: 20),
+
+              // Titre
+              _buildTextField('Titre du livre', 'title', maxLines: 2),
+              const SizedBox(height: 16),
+
+              // Auteur
+              _buildTextField('Auteur', 'author', maxLines: 2),
+              const SizedBox(height: 16),
+
+              // Description
+              _buildTextField('Description', 'description', maxLines: 4),
+              const SizedBox(height: 16),
+
+              // Prix
+              _buildTextField('Prix (FCFA)', 'price', isNumber: true),
+              const SizedBox(height: 16),
+
+              // Nombre de pages
+              _buildTextField('Nombre de pages', 'pages', isNumber: true),
+              const SizedBox(height: 16),
+
+              // Catégorie
+              _buildDropdown('Catégorie', _categories, _selectedCategory, (value) {
+                setState(() => _selectedCategory = value);
+              }),
+              const SizedBox(height: 16),
+
+              // État
+              _buildDropdown('État du livre', _conditions, _selectedCondition, (value) {
+                setState(() => _selectedCondition = value);
+              }),
+              const SizedBox(height: 16),
+
+              // Type
+              _buildDropdown('Type', _types, _selectedType, (value) {
+                setState(() => _selectedType = value);
+              }),
               const SizedBox(height: 24),
-              _buildFormField('Titre du livre', 'title', maxLines: 3),
-              const SizedBox(height: 16),
-              _buildFormField('Auteur', 'author', maxLines: 3),
-              const SizedBox(height: 16),
-              _buildFormField('Description', 'description', maxLines: 3),
-              const SizedBox(height: 16),
-              _buildFormField('Prix (fcfa)', 'price', isNumber: true, maxLines: 3),
-              const SizedBox(height: 16),
-              _buildFormField('Nombre de pages', 'pages', isNumber: true, maxLines: 3),
-              const SizedBox(height: 16),
-              _buildFormField('Note (0-100)', 'rating', isNumber: true, maxLines: 3),
-              const SizedBox(height: 16),
 
-              // Category dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                decoration: InputDecoration(
-                  labelText: 'Catégorie',
-                  labelStyle: const TextStyle(color: AppColors.primaryBlue),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.primaryBlue.withOpacity(0.5)),
+              // Bouton de soumission
+              ElevatedButton(
+                onPressed: _isLoading ? null : _submitForm,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: AppColors.primaryBlue, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
-                items: _categories.map((String category) {
-                  return DropdownMenuItem<String>(
-                    value: category,
-                    child: Text(category),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedCategory = newValue;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) return 'Veuillez sélectionner une catégorie';
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 32),
-              PrimaryButton(
-                text: 'PUBLIER LE LIVRE',
-                onPressed: _submitForm,
-                isLoading: _isLoading,
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : Text(
+                  _isEditing ? 'PUBLIER LE LIVRE' : 'MODIFIER LE LIVRE',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),

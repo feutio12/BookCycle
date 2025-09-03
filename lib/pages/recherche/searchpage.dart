@@ -212,7 +212,7 @@ class _SearchPageState extends State<SearchPage> {
           bookId: book['id'],
           book: book,
           publisherId: book['userId'] ?? '',
-          publisherName: book['author'] ?? 'Auteur inconnu',
+          publisherName: book['author'] ?? 'Auteur inconnu', publisherEmail: null,
         ),
       ),
     );
@@ -238,7 +238,7 @@ class _SearchPageState extends State<SearchPage> {
             letterSpacing: -0.5,
           ),
         ),
-        backgroundColor: Colors.lightBlue,
+        backgroundColor: const Color(0xFF1976D2),
         elevation: 0,
         centerTitle: false,
         actions: [

@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'book_detail_page.dart';
 
 class BookCard extends StatelessWidget {
   final Map<String, dynamic> book;
@@ -9,6 +8,9 @@ class BookCard extends StatelessWidget {
   final TextTheme textTheme;
   final Function(String) onLikePressed;
   final String currentUserId;
+  final Function(String) onDeleteBook;
+  final Function(Map<String, dynamic>) onEditBook;
+  final Function(String, String, String) onContactPublisher; // Nouveau callback
 
   const BookCard({
     super.key,
@@ -17,25 +19,248 @@ class BookCard extends StatelessWidget {
     required this.textTheme,
     required this.onLikePressed,
     required this.currentUserId,
+    required this.onDeleteBook,
+    required this.onEditBook,
+    required this.onContactPublisher, // Nouveau paramètre
+
   });
 
-  void _navigateToDetail(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BookDetailPage(
-          book: book,
-          publisherId: book['userId'] as String? ?? '',
-          publisherName: book['publisherName'] as String? ?? 'Anonyme',
-          bookId: book['id'] ?? '',
-        ),
-      ),
+  void _showBookDetails(BuildContext context) {
+    final bookData = _extractBookData();
+    final isOwner = currentUserId == book['publisherEmail']; // Vérification par email
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          margin: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle pour glisser
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              bookData['title'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                                color: Color(0xFF1A237E),
+                              ),
+                            ),
+                          ),
+                          if (isOwner)
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.grey),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Image du livre
+                      Center(
+                        child: _buildBookImage(bookData['imageUrl'], size: 150),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Auteur
+                      Text(
+                        'Auteur: ${bookData['author']}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 16,
+                          color: Color(0xFF546E7A),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Description
+                      Text(
+                        'Description:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      Text(bookData['description']),
+                      const SizedBox(height: 12),
+
+                      // Catégorie
+                      Text(
+                        'Catégorie: ${bookData['category']}',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // État
+                      Text(
+                        'État: ${bookData['condition']}',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Type
+                      Text(
+                        'Type: ${bookData['type']}',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Pages
+                      Text(
+                        'Pages: ${bookData['pages']}',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Prix
+                      Text(
+                        'Prix: ${bookData['price']} FCFA',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1976D2),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Note
+                      Row(
+                        children: [
+                          _buildRatingStars(bookData['rating']),
+                          const SizedBox(width: 8),
+                          Text(
+                            '(${(bookData['rating'] / 20).toStringAsFixed(1)})',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Boutons d'action
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  border: Border(top: BorderSide(color: Colors.grey[200]!)),
+                ),
+                child: Row(
+                  children: [
+                    if (isOwner) ...[
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            onEditBook(book);
+                          },
+                          icon: const Icon(Icons.edit, size: 18),
+                          label: const Text('Modifier'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            onDeleteBook(bookData['id']);
+                          },
+                          icon: const Icon(Icons.delete, size: 18),
+                          label: const Text('Supprimer'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            onContactPublisher(
+                              book['publisherEmail'],
+                              book['publisherName'],
+                              bookData['title'],
+                            );
+                          },
+                          icon: const Icon(Icons.chat, size: 18),
+                          label: const Text('Contacter'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Fermer'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildBookImage(String? imageUrl) {
+  Widget _buildBookImage(String? imageUrl, {double size = 90}) {
     if (imageUrl == null || imageUrl.isEmpty || imageUrl == "100") {
-      return _buildPlaceholder();
+      return _buildPlaceholder(size: size);
     }
 
     try {
@@ -43,21 +268,21 @@ class BookCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Image.memory(
           base64Decode(imageUrl),
-          width: 90,
-          height: 130,
+          width: size,
+          height: size * 1.44,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(size: size),
         ),
       );
     } catch (e) {
-      return _buildPlaceholder();
+      return _buildPlaceholder(size: size);
     }
   }
 
-  Widget _buildPlaceholder() {
+  Widget _buildPlaceholder({double size = 90}) {
     return Container(
-      width: 90,
-      height: 130,
+      width: size,
+      height: size * 1.44,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -124,7 +349,7 @@ class BookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bookData = _extractBookData();
-    final starRating = bookData['rating'] > 0 ? (bookData['rating'] / 20).toStringAsFixed(1) : '0.0';
+    final starRating = bookData['rating'] > 0 ? (bookData['rating'] / 10).toStringAsFixed(1) : '0.0';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -143,7 +368,7 @@ class BookCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _navigateToDetail(context),
+          onTap: () => _showBookDetails(context),
           child: Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
@@ -180,11 +405,7 @@ class BookCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Image du livre
-                        Hero(
-                          tag: 'book-${bookData['id']}',
-                          child: _buildBookImage(bookData['imageUrl']),
-
-                        ),
+                        _buildBookImage(bookData['imageUrl']),
 
                         const SizedBox(width: 10),
 
@@ -220,22 +441,25 @@ class BookCard extends StatelessWidget {
                               const SizedBox(height: 8),
 
                               // État et type
-                              Row(
-                                children: [
-                                  _buildInfoChip(
-                                    Icons.auto_awesome_rounded,
-                                    bookData['condition'],
-                                    const Color(0xFF1976D2),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _buildInfoChip(
-                                    bookData['type'] == 'Échange'
-                                        ? Icons.swap_horiz_rounded
-                                        : Icons.attach_money_rounded,
-                                    bookData['type'],
-                                    const Color(0xFF4CAF50),
-                                  ),
-                                ],
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    _buildInfoChip(
+                                      Icons.auto_awesome_rounded,
+                                      bookData['condition'],
+                                      const Color(0xFF1976D2),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _buildInfoChip(
+                                      bookData['type'] == 'Échange'
+                                          ? Icons.swap_horiz_rounded
+                                          : Icons.attach_money_rounded,
+                                      bookData['type'],
+                                      const Color(0xFF4CAF50),
+                                    ),
+                                  ],
+                                ),
                               ),
 
                               const SizedBox(height: 12),
@@ -252,32 +476,23 @@ class BookCard extends StatelessWidget {
                               ),
 
                               const SizedBox(height: 12),
-
-                              // Footer avec prix, pages et actions
-
                             ],
                           ),
                         ),
                       ],
                     ),
 
-
                     Row(
                       children: [
-                        // Pages
+                        // Prix
                         Expanded(
-                          child: Row(
-                            //crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${bookData['price']} FCFA',
-                                style: textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF1976D2),
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            '${bookData['price']} FCFA',
+                            style: textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF1976D2),
+                              fontSize: 16,
+                            ),
                           ),
                         ),
 
@@ -294,7 +509,7 @@ class BookCard extends StatelessWidget {
                   ],
                 ),
 
-                // Publié par
+                // Publié par et pages
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -304,7 +519,8 @@ class BookCard extends StatelessWidget {
                         color: const Color(0xFF90A4AE),
                         fontStyle: FontStyle.italic,
                       ),
-                    ),Spacer(),
+                    ),
+                    const Spacer(),
                     Text(
                       '${bookData['pages']} pages',
                       style: textTheme.bodySmall?.copyWith(

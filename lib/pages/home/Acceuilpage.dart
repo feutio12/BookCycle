@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../book/book_detail_page.dart';
 import '../book/book_filter.dart';
 import '../book/book_list.dart';
+import '../chats/chat_service.dart';
 
 class Acceuilpage extends StatefulWidget {
   const Acceuilpage({super.key});
@@ -79,24 +80,37 @@ class _AcceuilpageState extends State<Acceuilpage> {
   Future<void> _fetchBooks() async {
     try {
       final snapshot = await _firestore.collection('books').get();
+      final user = _auth.currentUser;
+      final userEmail = user?.email;
+
       final books = await Future.wait(snapshot.docs.map((doc) async {
         final data = doc.data();
-        final userId = data['userId'] ?? '';
+        final publisherEmail = data['publisherEmail'] ?? '';
         String publisherName = 'Utilisateur inconnu';
 
-        if (userId.isNotEmpty) {
+        // Récupérer le nom de l'utilisateur
+        if (publisherEmail.isNotEmpty) {
           try {
-            final userDoc = await _firestore.collection('users').doc(userId).get();
-            if (userDoc.exists) {
-              publisherName = userDoc.data()?['displayName'] ??
-                  userDoc.data()?['name'] ??
-                  userDoc.data()?['email']?.split('@').first ??
+            final userQuery = await _firestore.collection('users')
+                .where('email', isEqualTo: publisherEmail)
+                .limit(1)
+                .get();
+
+            if (userQuery.docs.isNotEmpty) {
+              final userData = userQuery.docs.first.data();
+              publisherName = userData['displayName'] ??
+                  userData['name'] ??
+                  userData['email']?.split('@').first ??
                   'Utilisateur';
             }
           } catch (e) {
             print('Erreur lors de la récupération du publicateur: $e');
           }
         }
+
+        // Récupérer les likes
+        final likedBy = List<String>.from(data['likedBy'] ?? []);
+        final isLiked = userEmail != null && likedBy.contains(userEmail);
 
         return {
           'id': doc.id,
@@ -111,13 +125,13 @@ class _AcceuilpageState extends State<Acceuilpage> {
           'rating': data['rating'] ?? 0.0,
           'isPopular': data['isPopular'] ?? false,
           'createdAt': data['createdAt']?.toDate() ?? DateTime.now(),
-          'isLiked': false,
-          'isGuestBook': data['userId'] == null,
-          'userId': userId,
+          'isLiked': isLiked,
+          'publisherEmail': publisherEmail, // Email du publieur
           'condition': data['condition'] ?? 'Bon état',
           'type': data['type'] ?? 'Échange',
           'location': data['location'] ?? 'Non spécifié',
           'publisherName': publisherName,
+          'likedBy': likedBy,
         };
       }));
 
@@ -190,15 +204,34 @@ class _AcceuilpageState extends State<Acceuilpage> {
       final bookIndex = _allBooks.indexWhere((book) => book['id'] == bookId);
       if (bookIndex == -1) return;
 
-      final isLiked = !(_allBooks[bookIndex]['isLiked'] as bool);
-      final newLikes = (_allBooks[bookIndex]['likes'] as int) + (isLiked ? 1 : -1);
+      final userEmail = user.email;
+      final currentLikedBy = List<String>.from(_allBooks[bookIndex]['likedBy'] ?? []);
+      final isCurrentlyLiked = currentLikedBy.contains(userEmail);
 
-      await _firestore.collection('books').doc(bookId).update({'likes': newLikes});
+      // Déterminer le nouvel état
+      final isLiked = !isCurrentlyLiked;
+
+      // Mettre à jour la liste likedBy
+      final newLikedBy = List<String>.from(currentLikedBy);
+      if (isLiked) {
+        newLikedBy.add(userEmail!);
+      } else {
+        newLikedBy.remove(userEmail);
+      }
+
+      final newLikes = newLikedBy.length;
+
+      // Mettre à jour Firestore
+      await _firestore.collection('books').doc(bookId).update({
+        'likes': newLikes,
+        'likedBy': newLikedBy,
+      });
 
       if (mounted) {
         setState(() {
           _allBooks[bookIndex]['isLiked'] = isLiked;
           _allBooks[bookIndex]['likes'] = newLikes;
+          _allBooks[bookIndex]['likedBy'] = newLikedBy;
           _filterBooks(_selectedFilter);
         });
         _showSuccessSnackBar(isLiked ? 'Ajouté à vos favoris' : 'Retiré de vos favoris');
@@ -213,9 +246,9 @@ class _AcceuilpageState extends State<Acceuilpage> {
       MaterialPageRoute(
         builder: (context) => BookDetailPage(
           book: book,
-          publisherId: book['userId'] ?? '',
+          publisherEmail: book['publisherEmail'] ?? '',
           publisherName: book['publisherName'] ?? 'Utilisateur inconnu',
-          bookId: book['id'] ?? '',
+          bookId: book['id'] ?? '', publisherId: '',
         ),
       ),
     );
@@ -231,7 +264,7 @@ class _AcceuilpageState extends State<Acceuilpage> {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => AddBookPage(),
+        builder: (context) => AddBookPage(book: {},),
       ),
     );
 
@@ -245,6 +278,123 @@ class _AcceuilpageState extends State<Acceuilpage> {
       context,
       MaterialPageRoute(builder: (context) => const LoginPage()),
     );
+  }
+
+  // Ajoutez ces fonctions dans votre _AcceuilpageState
+
+  Future<void> _handleDeleteBook(String bookId) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      _showLoginRequiredSnackBar('pour supprimer un livre');
+      return;
+    }
+
+    try {
+      // Récupérer le livre pour vérifier la propriété
+      final bookDoc = await _firestore.collection('books').doc(bookId).get();
+      if (!bookDoc.exists) {
+        _showErrorSnackBar('Livre non trouvé');
+        return;
+      }
+
+      final bookData = bookDoc.data() as Map<String, dynamic>;
+      final publisherEmail = bookData['publisherEmail'] ?? '';
+
+      // Vérifier que l'utilisateur est le propriétaire
+      if (publisherEmail != user.email) {
+        _showErrorSnackBar('Vous ne pouvez pas supprimer ce livre');
+        return;
+      }
+
+      // Confirmation de suppression
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Confirmer la suppression'),
+          content: const Text('Êtes-vous sûr de vouloir supprimer ce livre? Cette action est irréversible.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        await _firestore.collection('books').doc(bookId).delete();
+        _showSuccessSnackBar('Livre supprimé avec succès');
+        await _fetchBooks(); // Recharger la liste
+      }
+    } catch (e) {
+      _showErrorSnackBar('Erreur lors de la suppression: $e');
+    }
+  }
+
+  Future<void> _handleEditBook(Map<String, dynamic> book) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      _showLoginRequiredSnackBar('pour modifier un livre');
+      return;
+    }
+
+    // Vérifier que l'utilisateur est le propriétaire
+    final publisherEmail = book['publisherEmail'] ?? '';
+    if (publisherEmail != user.email) {
+      _showErrorSnackBar('Vous ne pouvez pas modifier ce livre');
+      return;
+    }
+
+    // Naviguer vers la page d'édition
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddBookPage(book: book),
+      ),
+    );
+
+    if (result == true && mounted) {
+      await _fetchBooks(); // Recharger après modification
+    }
+  }
+
+  Future<void> _handleContactPublisher(String publisherEmail, String publisherName, String bookTitle) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      _showLoginRequiredSnackBar('pour contacter un publicateur');
+      return;
+    }
+
+    try {
+      // Générer l'ID de chat
+      final chatId = ChatService.generateChatId(user.uid, publisherEmail);
+
+      // Créer le chat si nécessaire
+      await ChatService.createChatIfNeeded(
+        chatId: chatId,
+        otherUserId: publisherEmail,
+        otherUserName: publisherName,
+      );
+
+      // Naviguer vers la page de chat
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatPage(
+            chatId: chatId,
+            otherUserId: publisherEmail,
+            otherUserName: publisherName,
+            initialMessage: "Bonjour, je suis intéressé par votre livre \"$bookTitle\"",
+          ),
+        ),
+      );
+    } catch (e) {
+      _showErrorSnackBar('Erreur lors de la création du chat: $e');
+    }
   }
 
   void _showErrorSnackBar(String message) {
@@ -350,9 +500,12 @@ class _AcceuilpageState extends State<Acceuilpage> {
             filters: _filters,
             colorScheme: Theme.of(context).colorScheme,
             textTheme: Theme.of(context).textTheme,
-            currentUserId: user?.uid ?? '',
+            currentUserId: user?.email ?? '', // Utiliser l'email comme ID
             isLoading: _isLoading,
             scrollController: _scrollController,
+            onDeleteBook: _handleDeleteBook, // Callback pour suppression
+            onEditBook: _handleEditBook, // Callback pour modification
+            onContactPublisher: _handleContactPublisher,
           ),
         ),
         floatingActionButton: FloatingActionButton(

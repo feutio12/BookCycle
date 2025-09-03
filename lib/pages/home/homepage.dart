@@ -1,14 +1,12 @@
+import 'package:animated_notch_bottom_bar/animated_notch_bottom_bar/animated_notch_bottom_bar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:bookcycle/pages/profile/profilpage.dart';
-import 'package:bookcycle/pages/chats/chatpage.dart';
-import '../../models/chats.dart';
 import '../../widgets/app_drawer.dart';
-import '../auth/loginpage.dart';
 import '../chats/chats_list_page.dart';
 import '../recherche/searchpage.dart';
 import 'Acceuilpage.dart';
-import '../enchere/Encherepage.dart'; // Déplacé ici pour éviter l'import circulaire
+import '../enchere/Encherepage.dart';
 
 class Homepage extends StatelessWidget {
   final Map<String, dynamic>? userData;
@@ -35,105 +33,146 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 2;
+  late PageController _pageController;
+  final _controller = NotchBottomBarController(index: 2);
   User? currentUser;
-
-  final List<ChatDiscussion> discussions = [
-    ChatDiscussion(
-      chatId: "1",
-      otherUserId: "2",
-      otherUserName: "Jean Dupont",
-      lastMessage: "Bonjour, le livre est-il disponible?",
-      lastMessageTime: DateTime.now().subtract(const Duration(minutes: 5)),
-      unreadCount: 2,
-      participants: [],
-      lastMessageSenderId: '',
-    ),
-    ChatDiscussion(
-      chatId: "2",
-      otherUserId: "3",
-      otherUserName: "Marie Martin",
-      lastMessage: "Je suis intéressée par votre livre",
-      lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
-      unreadCount: 0,
-      participants: [],
-      lastMessageSenderId: '',
-    ),
-  ];
-
-  late List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
-    _initializeScreens();
-    _getCurrentUser();
+    _pageController = PageController(initialPage: _currentIndex);
   }
 
-  void _initializeScreens() {
-    _screens = [
-      SearchPage(),
-      DiscussionsListPage(discussions: discussions),
-      Acceuilpage(), // Retirer const
-      AuctionPage(),
-      ProfilePage(), // Retirer const
-    ];
-  }
-
-  void _navigateToLogin() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => LoginPage()), // Retirer const
-    );
-  }
-
-  Future<void> _getCurrentUser() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      setState(() {
-        currentUser = user;
-        _initializeScreens(); // Réinitialiser les écrans
-      });
-    }
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const AppDrawer(),
-      body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.blue[800],
-        unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.grey.shade200,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Search',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.message),
-            label: 'Chat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.gavel_rounded),
-            label: 'Enchères',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+      body: SizedBox.expand(
+        child: PageView(
+          controller: _pageController,
+          onPageChanged: (index) {
+            setState(() => _currentIndex = index);
+            _controller.index = index;
+          },
+          children: <Widget>[
+            SearchPage(),
+            const DiscussionsListPage(),
+            Acceuilpage(),
+            AuctionPage(),
+            ProfilePage(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        // Supprimer tous les marges et padding autour de la barre
+        margin: EdgeInsets.zero,
+        padding: EdgeInsets.zero,
+        child: Row(
+          children: [
+            Spacer(),
+            AnimatedNotchBottomBar(
+              notchBottomBarController: _controller,
+              color: Colors.white,
+              showLabel: true,
+              removeMargins: true,
+              notchColor: Colors.blue.shade400,
+              bottomBarItems: [
+                BottomBarItem(
+                  inActiveItem: Image.asset(
+                    'assets/images/search_vide.png',
+                    color: Colors.black54,
+                    width: 24,
+                    height: 24,
+                  ),
+                  activeItem: Image.asset(
+                    'assets/images/search.png',
+                    color: Colors.black,
+                    width: 24,
+                    height: 24,
+                  ),
+                  itemLabel: 'Recherche',
+                ),
+                BottomBarItem(
+                  inActiveItem: Image.asset(
+                    'assets/images/chatting_vide.png',
+                    color: Colors.black54,
+                    width: 24,
+                    height: 24,
+                  ),
+                  activeItem: Image.asset(
+                    'assets/images/chatting.png',
+                    color: Colors.black,
+                    width: 24,
+                    height: 24,
+                  ),
+                  itemLabel: 'Messages',
+                ),
+                BottomBarItem(
+                  inActiveItem: Image.asset(
+                    'assets/images/home_vide.png',
+                    color: Colors.black54,
+                    width: 24,
+                    height: 24,
+                  ),
+                  activeItem: Image.asset(
+                    'assets/images/home.png',
+                    color: Colors.black,
+                    width: 24,
+                    height: 24,
+                  ),
+                  itemLabel: 'Accueil',
+                ),
+                BottomBarItem(
+                  inActiveItem: Image.asset(
+                    'assets/images/auction.vide.png',
+                    color: Colors.black54,
+                    width: 24,
+                    height: 24,
+                  ),
+                  activeItem: Image.asset(
+                    'assets/images/auction.png',
+                    color: Colors.black,
+                    width: 24,
+                    height: 24,
+                  ),
+                  itemLabel: 'Enchère',
+                ),
+                BottomBarItem(
+                  inActiveItem: Image.asset(
+                    'assets/images/user_vide.png',
+                    color: Colors.black54,
+                    width: 24,
+                    height: 24,
+                  ),
+                  activeItem: Image.asset(
+                    'assets/images/user.png',
+                    color: Colors.black,
+                    width: 24,
+                    height: 24,
+                  ),
+                  itemLabel: 'Profil',
+                ),
+              ],
+              onTap: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+                _pageController.jumpToPage(index);
+              },
+              kIconSize: 20,
+              kBottomRadius: 0,
+              shadowElevation: 0,
+              // Étendre la barre sur toute la largeur
+              bottomBarWidth: MediaQuery.of(context).size.width,
+            ),
+          ],
+        ),
       ),
     );
   }

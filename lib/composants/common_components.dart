@@ -170,7 +170,7 @@ class ImagePickerWidget extends StatelessWidget {
     super.key,
     this.imageFile,
     required this.onTap,
-    this.errorMessage,
+    this.errorMessage, String? existingImageUrl,
   });
 
   @override

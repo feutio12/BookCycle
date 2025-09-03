@@ -5,12 +5,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../composants/common_components.dart';
 import '../../models/chats.dart';
 import 'chatpage.dart';
-import 'chat_service.dart';
 import 'chat_utils.dart';
-import 'new_chat_page.dart';
 
 class DiscussionsListPage extends StatefulWidget {
-  const DiscussionsListPage({super.key, required List<ChatDiscussion> discussions});
+  const DiscussionsListPage({super.key});
 
   @override
   State<DiscussionsListPage> createState() => _DiscussionsListPageState();
@@ -30,13 +28,18 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
     final currentUser = _auth.currentUser;
     if (currentUser == null) return;
 
-    // Use user's chat subcollection instead of main chats collection
     _discussionsStream = FirebaseFirestore.instance
         .collection('users')
         .doc(currentUser.uid)
         .collection('chats')
         .orderBy('lastMessageTime', descending: true)
         .snapshots();
+  }
+
+  Future<void> _refreshDiscussions() async {
+    setState(() {
+      _loadDiscussions();
+    });
   }
 
   @override
@@ -64,80 +67,78 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
         title: const Text('Messages'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshDiscussions,
+          ),
+        ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _discussionsStream,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: ErrorMessage(message: 'Erreur: ${snapshot.error}'),
-            );
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingIndicator(message: 'Chargement des discussions...');
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: InfoMessage(
-                message: 'Aucune discussion pour le moment',
-                icon: Icons.chat_bubble_outline,
-              ),
-            );
-          }
-
-          final discussions = snapshot.data!.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            return ChatDiscussion(
-              chatId: doc.id,
-              participants: [], // Not needed for user's chat list
-              otherUserId: data['otherUserId'] ?? '',
-              otherUserName: data['otherUserName'] ?? 'Utilisateur inconnu',
-              lastMessage: data['lastMessage'] ?? '',
-              lastMessageTime: (data['lastMessageTime'] as Timestamp).toDate(),
-              lastMessageSenderId: data['lastMessageSenderId'] ?? '',
-              unreadCount: data['unreadCount'] ?? 0,
-            );
-          }).toList();
-
-          return ListView.builder(
-            itemCount: discussions.length,
-            itemBuilder: (context, index) {
-              final discussion = discussions[index];
-              return _DiscussionTile(
-                discussion: discussion,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChatPage(
-                        chatId: discussion.chatId,
-                        otherUserId: discussion.otherUserId,
-                        otherUserName: discussion.otherUserName,
-                        initialMessage: '',
-                      ),
-                    ),
-                  ).then((_) {
-                    setState(() {
-                      _loadDiscussions();
-                    });
-                  });
-                },
+      body: RefreshIndicator(
+        onRefresh: _refreshDiscussions,
+        child: StreamBuilder<QuerySnapshot>(
+          stream: _discussionsStream,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: ErrorMessage(message: 'Erreur: ${snapshot.error}'),
               );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const NewChatPage()),
-          );
-        },
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.chat, color: Colors.white),
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LoadingIndicator(message: 'Chargement des discussions...');
+            }
+
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return const Center(
+                child: InfoMessage(
+                  message: 'Aucune discussion pour le moment',
+                  icon: Icons.chat_bubble_outline,
+                ),
+              );
+            }
+
+            final discussions = snapshot.data!.docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return ChatDiscussion(
+                chatId: doc.id,
+                participants: [],
+                otherUserId: data['otherUserId'] ?? '',
+                otherUserName: data['otherUserName'] ?? 'Utilisateur inconnu',
+                lastMessage: data['lastMessage'] ?? '',
+                lastMessageTime: (data['lastMessageTime'] as Timestamp).toDate(),
+                lastMessageSenderId: data['lastMessageSenderId'] ?? '',
+                unreadCount: data['unreadCount'] ?? 0,
+              );
+            }).toList();
+
+            return ListView.builder(
+              itemCount: discussions.length,
+              itemBuilder: (context, index) {
+                final discussion = discussions[index];
+                return _DiscussionTile(
+                  discussion: discussion,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatPage(
+                          chatId: discussion.chatId,
+                          otherUserId: discussion.otherUserId,
+                          otherUserName: discussion.otherUserName,
+                          initialMessage: '',
+                        ),
+                      ),
+                    ).then((_) {
+                      // Rafraîchir la liste après retour de la discussion
+                      _refreshDiscussions();
+                    });
+                  },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
