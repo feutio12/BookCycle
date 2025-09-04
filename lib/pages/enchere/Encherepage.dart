@@ -177,22 +177,47 @@ class _AuctionPageState extends State<AuctionPage> {
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.background,
         appBar: AppBar(
-          title: const Text('Enchères BookCycle', style: TextStyle(fontWeight: FontWeight.bold)),
-          backgroundColor: Color(0xFF42A5F5),
-          foregroundColor: Theme.of(context).colorScheme.onSurface,
-          elevation: 0,
+          title: const Text( 'Enchères BookCycle',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          backgroundColor: const Color(0xFF42A5F5),
+          foregroundColor: Colors.white,
+          elevation: 4,
+          shadowColor: Colors.blue.shade200,
           bottom: TabBar(
-            indicatorColor: Theme.of(context).colorScheme.secondary,
-            labelColor: Color(0xFF1976D2),
-            unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            indicatorColor: Colors.white,
+            indicatorWeight: 3.0,
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white.withOpacity(0.7),
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.normal,
+            ),
             tabs: const [
-              Tab(icon: Icon(Icons.timer), text: 'En cours'),
-              Tab(icon: Icon(Icons.history), text: 'Terminées'),
+              Tab(
+                icon: Icon(Icons.timer, size: 20),
+                text: 'En cours',
+              ),
+              Tab(
+                icon: Icon(Icons.history, size: 20),
+                text: 'Terminées',
+              ),
             ],
           ),
           actions: [
             IconButton(
-              icon: Icon(Icons.refresh, color: Theme.of(context).colorScheme.primary),
+              icon: Icon(
+                Icons.refresh,
+                color: Colors.white,
+                size: 24,
+              ),
               onPressed: _chargerEncheres,
             ),
           ],

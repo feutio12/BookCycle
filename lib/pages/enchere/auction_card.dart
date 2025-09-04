@@ -15,9 +15,9 @@ class AuctionCard extends StatelessWidget {
     this.actions = const [],
   });
 
-  Widget _buildBookImage(String imageUrl) {
-    if (imageUrl.isEmpty) {
-      return _buildPlaceholder();
+  Widget _buildBookImage(String? imageUrl, {double size = 90}) {
+    if (imageUrl == null || imageUrl.isEmpty || imageUrl == "100") {
+      return _buildPlaceholder(size: size);
     }
 
     try {
@@ -25,8 +25,8 @@ class AuctionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Image.memory(
           base64Decode(imageUrl),
-          width: 80,
-          height: 110,
+          width: size,
+          height: size * 1.44,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
         ),
@@ -36,7 +36,7 @@ class AuctionCard extends StatelessWidget {
     }
   }
 
-  Widget _buildPlaceholder() {
+  Widget _buildPlaceholder({double size = 90}) {
     return Container(
       width: 80,
       height: 110,

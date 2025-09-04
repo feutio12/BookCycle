@@ -12,6 +12,7 @@ class AuctionCard extends StatelessWidget {
     required this.enchere,
     required this.onTap,
     this.actions = const [],
+    required String imageUrl,
   });
 
   @override

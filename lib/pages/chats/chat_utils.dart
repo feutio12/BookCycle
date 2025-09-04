@@ -31,7 +31,7 @@ class ChatUtils {
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isMe;
-  final bool isRead;
+  final bool isRead; // Nouveau paramètre
 
   const MessageBubble({
     super.key,
@@ -140,7 +140,14 @@ class MessageBubble extends StatelessWidget {
               ],
             ),
           ),
-          if (isMe) const SizedBox(width: 8),
+          if (isMe) ...[
+            const SizedBox(width: 4),
+            Icon(
+              isRead ? Icons.done_all : Icons.done,
+              size: 16,
+              color: isRead ? Colors.blue : Colors.grey,
+            ),
+          ],
         ],
       ),
     );

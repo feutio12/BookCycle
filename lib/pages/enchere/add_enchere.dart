@@ -93,7 +93,7 @@ class _AddEncherePageState extends State<AddEncherePage> {
       await _saveEnchereToFirestore(enchereData);
 
       AppUtils.showSuccessSnackBar(context, 'Enchère créée avec succès');
-      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      Navigator.of(context).pop(true);
     } catch (e) {
       _showErrorMessage(e);
     } finally {
@@ -228,10 +228,23 @@ class _AddEncherePageState extends State<AddEncherePage> {
                 ),
               ),
               const SizedBox(height: 32),
-              PrimaryButton(
-                text: 'PUBLIER L\'ENCHÈRE',
-                onPressed: _submitForm,
+          ElevatedButton(
+            onPressed: _isLoading ? null : _submitForm,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
+            ),
+            child: _isLoading
+                ? const CircularProgressIndicator(color: Colors.white)
+                : Text(
+               'PUBLIER L\'ENCHÈRE',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            )
             ],
           ),
         ),

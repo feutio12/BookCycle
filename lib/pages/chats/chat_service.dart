@@ -66,13 +66,13 @@ class ChatService {
       final currentUser = _auth.currentUser;
       if (currentUser == null) return;
 
-      // Créer les données du message
+      // Créer les données du message avec statut non lu
       final messageData = {
         'senderId': currentUser.uid,
         'senderName': currentUser.displayName ?? 'Anonyme',
         'content': content,
         'timestamp': FieldValue.serverTimestamp(),
-        'read': false,
+        'read': false, // Message non lu par le destinataire
       };
 
       // Ajouter le message à la sous-collection
@@ -87,13 +87,31 @@ class ChatService {
         'lastMessage': content,
         'lastMessageTime': FieldValue.serverTimestamp(),
         'lastMessageSenderId': currentUser.uid,
-        'unreadCount': FieldValue.increment(1),
-        'otherUserId': otherUserId,
-        'otherUserName': otherUserName,
+        'unreadCount': FieldValue.increment(1), // Incrémenter le compteur de non-lus
       });
 
-      // Mettre à jour la sous-collection de chat de l'utilisateur
-      await _updateUserChatReference(chatId, currentUser.uid, otherUserId, otherUserName, content);
+      // Mettre à jour la sous-collection de chat de l'utilisateur courant
+      await _firestore.collection('users').doc(currentUser.uid)
+          .collection('chats').doc(chatId).set({
+        'otherUserId': otherUserId,
+        'otherUserName': otherUserName,
+        'lastMessage': content,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': currentUser.uid,
+        'unreadCount': 0, // L'expéditeur a 0 message non lu
+      }, SetOptions(merge: true));
+
+      // Mettre à jour la sous-collection de chat du destinataire avec compteur de non-lus
+      await _firestore.collection('users').doc(otherUserId)
+          .collection('chats').doc(chatId).set({
+        'otherUserId': currentUser.uid,
+        'otherUserName': currentUser.displayName ?? 'Utilisateur',
+        'lastMessage': content,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageSenderId': currentUser.uid,
+        'unreadCount': FieldValue.increment(1), // Destinataire a +1 message non lu
+      }, SetOptions(merge: true));
+
     } catch (e) {
       print('Erreur lors de l\'envoi du message: $e');
       rethrow;

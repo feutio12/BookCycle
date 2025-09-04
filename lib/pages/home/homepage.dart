@@ -78,21 +78,22 @@ class _MainScreenState extends State<MainScreen> {
             Spacer(),
             AnimatedNotchBottomBar(
               notchBottomBarController: _controller,
-              color: Colors.white,
+              color: Colors.grey.shade300,
               showLabel: true,
               removeMargins: true,
-              notchColor: Colors.blue.shade400,
+              notchColor: Color(0xFF1976D2),
+              itemLabelStyle: TextStyle(color: Color(0xFF1976D2)),
               bottomBarItems: [
                 BottomBarItem(
                   inActiveItem: Image.asset(
                     'assets/images/search_vide.png',
-                    color: Colors.black54,
+                    color: Color(0xFF1976D2),
                     width: 24,
                     height: 24,
                   ),
                   activeItem: Image.asset(
                     'assets/images/search.png',
-                    color: Colors.black,
+                    color: Colors.white,
                     width: 24,
                     height: 24,
                   ),
@@ -101,13 +102,13 @@ class _MainScreenState extends State<MainScreen> {
                 BottomBarItem(
                   inActiveItem: Image.asset(
                     'assets/images/chatting_vide.png',
-                    color: Colors.black54,
+                    color: Color(0xFF1976D2),
                     width: 24,
                     height: 24,
                   ),
                   activeItem: Image.asset(
                     'assets/images/chatting.png',
-                    color: Colors.black,
+                    color: Colors.white,
                     width: 24,
                     height: 24,
                   ),
@@ -116,13 +117,13 @@ class _MainScreenState extends State<MainScreen> {
                 BottomBarItem(
                   inActiveItem: Image.asset(
                     'assets/images/home_vide.png',
-                    color: Colors.black54,
+                    color: Color(0xFF1976D2),
                     width: 24,
                     height: 24,
                   ),
                   activeItem: Image.asset(
                     'assets/images/home.png',
-                    color: Colors.black,
+                    color: Colors.white,
                     width: 24,
                     height: 24,
                   ),
@@ -131,13 +132,13 @@ class _MainScreenState extends State<MainScreen> {
                 BottomBarItem(
                   inActiveItem: Image.asset(
                     'assets/images/auction.vide.png',
-                    color: Colors.black54,
+                    color: Color(0xFF1976D2),
                     width: 24,
                     height: 24,
                   ),
                   activeItem: Image.asset(
                     'assets/images/auction.png',
-                    color: Colors.black,
+                    color: Colors.white,
                     width: 24,
                     height: 24,
                   ),
@@ -146,13 +147,13 @@ class _MainScreenState extends State<MainScreen> {
                 BottomBarItem(
                   inActiveItem: Image.asset(
                     'assets/images/user_vide.png',
-                    color: Colors.black54,
+                    color: Color(0xFF1976D2),
                     width: 24,
                     height: 24,
                   ),
                   activeItem: Image.asset(
                     'assets/images/user.png',
-                    color: Colors.black,
+                    color: Colors.white,
                     width: 24,
                     height: 24,
                   ),

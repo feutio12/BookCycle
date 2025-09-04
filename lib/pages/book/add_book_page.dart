@@ -181,7 +181,7 @@ class _AddBookPageState extends State<AddBookPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isEditing ? 'Livre modifié avec succès!' : 'Livre publié avec succès!'),
+          content: Text(_isEditing ? 'Livre publié avec succès!' : 'Livre modifié avec succès!'),
           backgroundColor: Colors.green,
         ),
       );

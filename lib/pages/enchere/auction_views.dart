@@ -61,6 +61,7 @@ class AuctionViews {
               return AuctionCard(
                 enchere: enchere,
                 onTap: () => afficherDetailsEnchere(enchere),
+                imageUrl: enchere.imageUrl,
                 actions: [
                   if (estActif && enchere.estActive)
                     ElevatedButton(

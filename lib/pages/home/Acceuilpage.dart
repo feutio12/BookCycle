@@ -333,6 +333,7 @@ class _AcceuilpageState extends State<Acceuilpage> {
     } catch (e) {
       _showErrorSnackBar('Erreur lors de la suppression: $e');
     }
+
   }
 
   Future<void> _handleEditBook(Map<String, dynamic> book) async {
@@ -370,12 +371,28 @@ class _AcceuilpageState extends State<Acceuilpage> {
     }
 
     try {
+      // Vérifier qu'on ne se contacte pas soi-même
+      if (publisherEmail == user.email) {
+        _showErrorSnackBar('Vous ne pouvez pas vous contacter vous-même');
+        return;
+      }
+
       // Générer l'ID de chat
       final chatId = ChatService.generateChatId(user.uid, publisherEmail);
 
       // Créer le chat si nécessaire
       await ChatService.createChatIfNeeded(
         chatId: chatId,
+        otherUserId: publisherEmail,
+        otherUserName: publisherName,
+      );
+
+      // Envoyer le message initial directement
+      final initialMessage = "Bonjour, je suis intéressé par votre livre \"$bookTitle\"";
+
+      await ChatService.sendMessage(
+        chatId: chatId,
+        content: initialMessage,
         otherUserId: publisherEmail,
         otherUserName: publisherName,
       );
@@ -388,12 +405,42 @@ class _AcceuilpageState extends State<Acceuilpage> {
             chatId: chatId,
             otherUserId: publisherEmail,
             otherUserName: publisherName,
-            initialMessage: "Bonjour, je suis intéressé par votre livre \"$bookTitle\"",
+            initialMessage: "", // Maintenant vide car le message est déjà envoyé
           ),
         ),
       );
+
+      // Mettre à jour le compteur de messages non lus pour le publicateur
+      await _updateUnreadCountForPublisher(chatId, publisherEmail);
+
     } catch (e) {
       _showErrorSnackBar('Erreur lors de la création du chat: $e');
+    }
+  }
+
+  Future<void> _updateUnreadCountForPublisher(String chatId, String publisherEmail) async {
+    try {
+      // Mettre à jour le compteur de messages non lus pour le publicateur
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(publisherEmail)
+          .collection('chats')
+          .doc(chatId)
+          .update({
+        'unreadCount': FieldValue.increment(1),
+        'lastMessageTime': FieldValue.serverTimestamp(),
+      });
+
+      // Mettre à jour également le document chat principal
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(chatId)
+          .update({
+        'unreadCount': FieldValue.increment(1),
+      });
+
+    } catch (e) {
+      print('Erreur lors de la mise à jour du compteur de non-lus: $e');
     }
   }
 

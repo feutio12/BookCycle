@@ -149,6 +149,7 @@ class ProfileComponents {
     );
   }
 
+  // Ajouter cette méthode pour afficher un indicateur de chargement dans les statistiques
   static Widget buildStatsSection(Map<String, dynamic>? userData) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -185,6 +186,15 @@ class ProfileComponents {
                   _buildStatCard('Enchères gagnées', userData?['stats']?['auctionsWon']?.toString() ?? '0'),
                   _buildStatCard('Évaluation', userData?['stats']?['rating']?.toString() ?? '0'),
                 ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Les statistiques sont mises à jour en temps réel',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey,
+                ),
               ),
             ],
           ),

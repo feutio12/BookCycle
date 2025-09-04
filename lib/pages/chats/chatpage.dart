@@ -211,33 +211,29 @@ class _ChatPageState extends State<ChatPage> {
                   controller: _scrollController,
                   reverse: true,
                   itemCount: messages.length,
+                  // Dans le builder du StreamBuilder des messages
                   itemBuilder: (context, index) {
                     final messageDoc = messages[index];
-                    final messageData =
-                    messageDoc.data() as Map<String, dynamic>;
+                    final messageData = messageDoc.data() as Map<String, dynamic>;
 
                     final message = ChatMessage(
                       id: messageDoc.id,
                       senderId: messageData['senderId'] ?? '',
                       senderName: messageData['senderName'] ?? 'Inconnu',
                       content: messageData['content'] ?? '',
-                      timestamp: (messageData['timestamp'] as Timestamp?)
-                          ?.toDate() ??
-                          DateTime.now(),
+                      timestamp: (messageData['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
                       isRead: messageData['read'] ?? false,
                     );
 
-                    final isMe =
-                        message.senderId == _auth.currentUser?.uid;
-                    final isRead = isMe
-                        ? (_readMessages.contains(message.id) ||
-                        message.isRead)
-                        : true;
+                    final isMe = message.senderId == _auth.currentUser?.uid;
+
+                    // Pour les messages de l'utilisateur courant, afficher l'indicateur de lecture
+                    final isRead = isMe ? message.isRead : true;
 
                     return MessageBubble(
                       message: message,
                       isMe: isMe,
-                      isRead: isRead,
+                      isRead: isRead, // Passer l'état de lecture
                     );
                   },
                 );
