@@ -1,7 +1,4 @@
-import 'package:bookcycle/pages/profile/profile_service.dart';
 import 'package:flutter/material.dart';
-import '../../composants/common_components.dart';
-import '../../composants/common_utils.dart';
 
 class ProfileStats extends StatelessWidget {
   final Map<String, dynamic> userData;
@@ -9,92 +6,89 @@ class ProfileStats extends StatelessWidget {
   final int auctionsCount;
 
   const ProfileStats({
-    super.key,
+    Key? key,
     required this.userData,
     required this.booksPublishedCount,
     required this.auctionsCount,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final stats = userData['stats'] ?? {};
+    final auctionsWon = stats['auctionsWon'] ?? 0;
+    final activeAuctions = stats['activeAuctions'] ?? 0;
+    final rating = (stats['rating'] ?? 0.0).toDouble();
+
     return Column(
       children: [
+        // Carte principale des statistiques
         Card(
-          elevation: 6,
+          elevation: 4,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0),
+            borderRadius: BorderRadius.circular(16.0),
           ),
-          child: Container(
+          child: Padding(
             padding: const EdgeInsets.all(20.0),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20.0),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primaryBlue.withOpacity(0.9),
-                  AppColors.accentGreen.withOpacity(0.9),
-                ],
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            child: Column(
               children: [
-                _buildStatItem(
-                  'Publications',
-                  booksPublishedCount.toString(),
-                  Icons.library_books_rounded,
-                  Colors.white,
+                const Text(
+                  'Statistiques',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
                 ),
-                _buildVerticalDivider(),
-                _buildStatItem(
-                  'Enchères',
-                  auctionsCount.toString(),
-                  Icons.gavel_rounded,
-                  Colors.white,
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatItem(
+                      'Livres Publiés',
+                      booksPublishedCount.toString(),
+                      Icons.library_books,
+                      Colors.blue,
+                    ),
+                    _buildStatItem(
+                      'Enchères Créées',
+                      auctionsCount.toString(),
+                      Icons.gavel,
+                      Colors.orange,
+                    ),
+                    _buildStatItem(
+                      'Enchères Gagnées',
+                      auctionsWon.toString(),
+                      Icons.emoji_events,
+                      Colors.amber,
+                    ),
+                  ],
                 ),
-                _buildVerticalDivider(),
-                _buildStatItem(
-                  'Note',
-                  (userData['rating'] ?? 0.0).toStringAsFixed(1),
-                  Icons.star_rounded,
-                  Colors.amber,
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildStatItem(
+                      'Enchères Actives',
+                      activeAuctions.toString(),
+                      Icons.timer,
+                      Colors.purple,
+                    ),
+                    _buildStatItem(
+                      'Note',
+                      rating.toStringAsFixed(1),
+                      Icons.star,
+                      Colors.amber,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildMiniStatCard(
-                'Partagés',
-                userData['booksShared']?.toString() ?? '0',
-                Icons.upload_rounded,
-                AppColors.primaryBlue,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildMiniStatCard(
-                'Reçus',
-                userData['booksReceived']?.toString() ?? '0',
-                Icons.download_rounded,
-                AppColors.accentGreen,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 
-  Widget _buildVerticalDivider() {
-    return Container(
-      width: 1,
-      height: 50,
-      color: Colors.white.withOpacity(0.5),
+        const SizedBox(height: 16),
+
+      ]
     );
   }
 
@@ -102,31 +96,29 @@ class ProfileStats extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 60,
-          height: 60,
+          width: 50,
+          height: 50,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
+            color: color.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, size: 28, color: color),
+          child: Icon(icon, size: 24, color: color),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 22,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
           ),
         ),
-        const SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
             fontSize: 12,
-            color: Colors.white.withOpacity(0.9),
-            fontWeight: FontWeight.w500,
+            color: Colors.grey[600],
           ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -134,46 +126,41 @@ class ProfileStats extends StatelessWidget {
 
   Widget _buildMiniStatCard(String label, String value, IconData icon, Color color) {
     return Card(
-      elevation: 3,
+      elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.0),
+        borderRadius: BorderRadius.circular(12.0),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                shape: BoxShape.circle,
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
-              child: Icon(icon, size: 20, color: color),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
             ),
           ],
         ),
       ),
     );
   }
+
 }

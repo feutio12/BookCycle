@@ -10,6 +10,37 @@ class ChatService {
     return 'chat_${ids[0]}_${ids[1]}';
   }
 
+  static Future<String> getOrCreateChat(String currentUserId, String otherUserId, String otherUserName) async {
+    final chatId = generateChatId(currentUserId, otherUserId);
+
+    // Vérifier si le chat existe déjà
+    final chatDoc = await _firestore.collection('chats').doc(chatId).get();
+
+    if (!chatDoc.exists) {
+      // Créer un nouveau chat
+      await createChatIfNeeded(
+        chatId: chatId,
+        otherUserId: otherUserId,
+        otherUserName: otherUserName,
+      );
+    }
+
+    return chatId;
+  }
+
+  static Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        return userDoc.data();
+      }
+      return null;
+    } catch (e) {
+      print('Erreur lors de la récupération du profil: $e');
+      return null;
+    }
+  }
+
   static Future<void> markMessagesAsRead(String chatId) async {
     try {
       final currentUser = _auth.currentUser;

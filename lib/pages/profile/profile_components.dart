@@ -151,6 +151,8 @@ class ProfileComponents {
 
   // Ajouter cette méthode pour afficher un indicateur de chargement dans les statistiques
   static Widget buildStatsSection(Map<String, dynamic>? userData) {
+    final stats = userData?['stats'] ?? {};
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Card(
@@ -175,26 +177,17 @@ class ProfileComponents {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildStatCard('Livres ajoutés', userData?['stats']?['booksAdded']?.toString() ?? '0'),
-                  _buildStatCard('Enchères créées', userData?['stats']?['auctionsCreated']?.toString() ?? '0'),
+                  _buildStatCard('Livres ajoutés', stats['booksAdded']?.toString() ?? '0'),
+                  _buildStatCard('Enchères créées', stats['auctionsCreated']?.toString() ?? '0'),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildStatCard('Enchères gagnées', userData?['stats']?['auctionsWon']?.toString() ?? '0'),
-                  _buildStatCard('Évaluation', userData?['stats']?['rating']?.toString() ?? '0'),
+                  _buildStatCard('Enchères gagnées', stats['auctionsWon']?.toString() ?? '0'),
+                  _buildStatCard('Évaluation', stats['rating']?.toString() ?? '0'),
                 ],
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Les statistiques sont mises à jour en temps réel',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                  color: Colors.grey,
-                ),
               ),
             ],
           ),

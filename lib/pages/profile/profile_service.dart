@@ -1,194 +1,242 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfileService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final Map<String, Map<String, dynamic>> _cache = {};
+  final StreamController<Map<String, dynamic>> _statsController =
+  StreamController<Map<String, dynamic>>.broadcast();
 
-  // Récupérer les données utilisateur avec les statistiques actualisées
-  Future<Map<String, dynamic>?> getUserData(String userId) async {
+  // Stream pour les mises à jour en temps réel des statistiques
+  Stream<Map<String, dynamic>> get statsStream => _statsController.stream;
+
+  // Obtenir les données utilisateur avec statistiques
+  Future<Map<String, dynamic>> getUserData(String userId) async {
     try {
-      final doc = await _firestore.collection('users').doc(userId).get();
-      if (!doc.exists) return null;
+      // Vérifier le cache
+      if (_cache.containsKey(userId)) {
+        return _cache[userId]!;
+      }
 
-      // Récupérer les données de base
-      Map<String, dynamic> userData = doc.data()!;
+      // Récupérer les données utilisateur
+      final userDoc = await _firestore.collection('users').doc(userId).get();
 
-      // Calculer les statistiques en temps réel
-      final booksCount = await getUserBooksCount(userId);
-      final auctionsCount = await getUserAuctionsCount(userId);
+      if (!userDoc.exists) {
+        throw Exception('Utilisateur non trouvé');
+      }
 
-      // Mettre à jour les statistiques
-      userData['stats'] = {
-        'booksAdded': booksCount,
-        'auctionsCreated': auctionsCount,
-        'auctionsWon': userData['stats']?['auctionsWon'] ?? 0,
-        'rating': userData['stats']?['rating'] ?? 0,
-      };
+      Map<String, dynamic> userData = userDoc.data()!;
+
+      // Calculer les statistiques en parallèle
+      final stats = await _calculateUserStats(userId);
+      userData['stats'] = stats;
+
+      // Mettre en cache
+      _cache[userId] = userData;
 
       return userData;
     } catch (e) {
-      throw Exception('Erreur lors de la récupération des données utilisateur: $e');
+      print('Erreur getUserData: $e');
+      rethrow;
     }
   }
 
-  // Créer un document utilisateur par défaut avec des statistiques initialisées
-  Future<void> createUserDocument(String userId, Map<String, dynamic> userData) async {
+  // Calculer les statistiques utilisateur
+  Future<Map<String, dynamic>> _calculateUserStats(String userId) async {
     try {
-      final completeUserData = {
-        ...userData,
-        'stats': {
-          'booksAdded': 0,
-          'auctionsCreated': 0,
-          'auctionsWon': 0,
-          'rating': 0,
-        },
-        'createdAt': FieldValue.serverTimestamp(),
+      final results = await Future.wait([
+        _countUserBooks(userId),
+        _countUserAuctions(userId),
+        _countWonAuctions(userId),
+        _countActiveAuctions(userId),
+      ]);
+
+      final stats = {
+        'booksPublished': results[0],
+        'auctionsCreated': results[1],
+        'auctionsWon': results[2],
+        'activeAuctions': results[4],
+        'rating': await _calculateUserRating(userId),
         'lastUpdated': FieldValue.serverTimestamp(),
-        'profileCompleted': false,
       };
 
-      await _firestore.collection('users').doc(userId).set(completeUserData);
+      // Mettre à jour Firestore
+      await _firestore.collection('users').doc(userId).update({
+        'stats': stats,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      // Émettre les nouvelles stats
+      _statsController.add(stats);
+
+      return stats;
     } catch (e) {
-      throw Exception('Erreur lors de la création du document utilisateur: $e');
+      print('Erreur _calculateUserStats: $e');
+      return {
+        'booksPublished': 0,
+        'auctionsCreated': 0,
+        'auctionsWon': 0,
+        'activeBooks': 0,
+        'activeAuctions': 0,
+        'rating': 0.0,
+      };
+    }
+  }
+
+  // Compter les livres publiés par l'utilisateur
+  Future<int> _countUserBooks(String userId) async {
+    try {
+      final query = await _firestore
+          .collection('books')
+          .where('userId', isEqualTo: userId)
+          .get();
+      return query.size;
+    } catch (e) {
+      print('Erreur _countUserBooks: $e');
+      return 0;
+    }
+  }
+
+  // Compter les enchères créées par l'utilisateur
+  Future<int> _countUserAuctions(String userId) async {
+    try {
+      final query = await _firestore
+          .collection('encheres')
+          .where('createurId', isEqualTo: userId)
+          .get();
+      return query.size;
+    } catch (e) {
+      print('Erreur _countUserAuctions: $e');
+      return 0;
+    }
+  }
+
+  // Compter les enchères gagnées par l'utilisateur
+  Future<int> _countWonAuctions(String userId) async {
+    try {
+      final query = await _firestore
+          .collection('encheres')
+          .where('winnerId', isEqualTo: userId)
+          .where('statut', isEqualTo: 'completed')
+          .get();
+      return query.size;
+    } catch (e) {
+      print('Erreur _countWonAuctions: $e');
+      return 0;
+    }
+  }
+
+  // Compter les enchères actives
+  Future<int> _countActiveAuctions(String createurId) async {
+    try {
+      final query = await _firestore
+          .collection('encheres')
+          .where('createurId', isEqualTo: createurId)
+          .where('statut', isEqualTo: 'active')
+          .get();
+      return query.size;
+    } catch (e) {
+      print('Erreur _countActiveAuctions: $e');
+      return 0;
+    }
+  }
+
+  // Calculer la note moyenne de l'utilisateur
+  Future<double> _calculateUserRating(String userId) async {
+    try {
+      final reviews = await _firestore
+          .collection('reviews')
+          .where('targetUserId', isEqualTo: userId)
+          .get();
+
+      if (reviews.size == 0) return 0.0;
+
+      final totalRating = reviews.docs.fold(0.0, (sum, doc) {
+        return sum + (doc.data()['rating'] as num).toDouble();
+      });
+
+      return totalRating / reviews.size;
+    } catch (e) {
+      print('Erreur _calculateUserRating: $e');
+      return 0.0;
+    }
+  }
+
+  // Stream des statistiques en temps réel
+  Stream<Map<String, dynamic>> getUserStatsStream(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .asyncMap((snapshot) async {
+      if (!snapshot.exists) {
+        return await _calculateUserStats(userId);
+      }
+
+      final data = snapshot.data()!;
+      return data['stats'] as Map<String, dynamic>? ?? await _calculateUserStats(userId);
+    });
+  }
+
+  // Rafraîchir manuellement les statistiques
+  Future<void> refreshUserStats(String userId) async {
+    try {
+      _cache.remove(userId); // Vider le cache
+      await _calculateUserStats(userId);
+    } catch (e) {
+      print('Erreur refreshUserStats: $e');
     }
   }
 
   // Mettre à jour le profil utilisateur
-  Future<void> updateUserProfile(String userId, String name, String bio) async {
+  Future<void> updateUserProfile({
+    required String userId,
+    required String name,
+    required String bio,
+    String? photoUrl,
+  }) async {
     try {
       await _firestore.collection('users').doc(userId).update({
         'name': name,
         'bio': bio,
-        'profileCompleted': true,
+        if (photoUrl != null) 'photoUrl': photoUrl,
         'lastUpdated': FieldValue.serverTimestamp(),
       });
+
+      _cache.remove(userId); // Invalider le cache
     } catch (e) {
-      throw Exception('Erreur lors de la mise à jour du profil: $e');
+      print('Erreur updateUserProfile: $e');
+      rethrow;
     }
   }
 
-  // Mettre à jour les préférences utilisateur
-  Future<void> updateUserPreferences(
-      String userId,
-      bool notifications,
-      bool emailUpdates,
-      String privacy,
-      String theme
-      ) async {
+  // Mettre à jour les préférences
+  Future<void> updateUserPreferences({
+    required String userId,
+    required Map<String, dynamic> preferences,
+  }) async {
     try {
       await _firestore.collection('users').doc(userId).update({
-        'preferences': {
-          'notifications': notifications,
-          'emailUpdates': emailUpdates,
-          'privacy': privacy,
-          'theme': theme
-        },
+        'preferences': preferences,
         'lastUpdated': FieldValue.serverTimestamp(),
       });
+
+      _cache.remove(userId);
     } catch (e) {
-      throw Exception('Erreur lors de la mise à jour des préférences: $e');
+      print('Erreur updateUserPreferences: $e');
+      rethrow;
     }
   }
 
-  // Compter le nombre de livres publiés par l'utilisateur
-  Future<int> getUserBooksCount(String userId) async {
-    try {
-      final querySnapshot = await _firestore
-          .collection('books')
-          .where('userId', isEqualTo: userId)
-          .get();
-
-      return querySnapshot.size;
-    } catch (e) {
-      print('Erreur lors du comptage des livres: $e');
-      return 0;
-    }
+  // Vider le cache
+  void clearCache(String userId) {
+    _cache.remove(userId);
   }
 
-  // Compter le nombre d'enchères créées par l'utilisateur
-  Future<int> getUserAuctionsCount(String userId) async {
-    try {
-      final querySnapshot = await _firestore
-          .collection('auctions')
-          .where('userId', isEqualTo: userId)
-          .get();
-
-      return querySnapshot.size;
-    } catch (e) {
-      print('Erreur lors du comptage des enchères: $e');
-      return 0;
-    }
-  }
-
-  // Compter le nombre d'enchères gagnées par l'utilisateur
-  Future<int> getUserAuctionsWonCount(String userId) async {
-    try {
-      final querySnapshot = await _firestore
-          .collection('auctions')
-          .where('winnerId', isEqualTo: userId)
-          .get();
-
-      return querySnapshot.size;
-    } catch (e) {
-      print('Erreur lors du comptage des enchères gagnées: $e');
-      return 0;
-    }
-  }
-
-  // Récupérer les livres publiés par l'utilisateur
-  Future<List<Map<String, dynamic>>> getUserBooks(String userId) async {
-    try {
-      final querySnapshot = await _firestore
-          .collection('books')
-          .where('userId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
-          .limit(5)
-          .get();
-
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return data;
-      }).toList();
-    } catch (e) {
-      throw Exception('Erreur lors de la récupération des livres: $e');
-    }
-  }
-
-  // Récupérer les enchères de l'utilisateur
-  Future<List<Map<String, dynamic>>> getUserAuctions(String userId) async {
-    try {
-      final querySnapshot = await _firestore
-          .collection('auctions')
-          .where('userId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
-          .limit(5)
-          .get();
-
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return data;
-      }).toList();
-    } catch (e) {
-      throw Exception('Erreur lors de la récupération des enchères: $e');
-    }
-  }
-
-  // Méthode pour mettre à jour les statistiques de l'utilisateur
-  Future<void> updateUserStats(String userId) async {
-    try {
-      final booksCount = await getUserBooksCount(userId);
-      final auctionsCount = await getUserAuctionsCount(userId);
-      final auctionsWonCount = await getUserAuctionsWonCount(userId);
-
-      await _firestore.collection('users').doc(userId).update({
-        'stats.booksAdded': booksCount,
-        'stats.auctionsCreated': auctionsCount,
-        'stats.auctionsWon': auctionsWonCount,
-        'lastUpdated': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      print('Erreur lors de la mise à jour des statistiques: $e');
-    }
+  // Nettoyer
+  void dispose() {
+    _statsController.close();
   }
 }

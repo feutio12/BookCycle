@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/chats.dart';
 import 'chat_service.dart';
 import 'chat_utils.dart' hide ChatService;
+import 'publisher_profile_page.dart';
 
 class ChatPage extends StatefulWidget {
   final String chatId;
@@ -145,37 +146,50 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Colors.blue,
-              child: Text(
-                widget.otherUserName.isNotEmpty
-                    ? widget.otherUserName[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(color: Colors.white),
+        title: GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PublisherProfilePage(
+                  publisherId: widget.otherUserId,
+                  publisherName: widget.otherUserName,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.otherUserName,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(
-                    "En ligne",
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.green,
-                      fontWeight: FontWeight.w500,
+            );
+          },
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.blue,
+                child: Text(
+                  widget.otherUserName.isNotEmpty
+                      ? widget.otherUserName[0].toUpperCase()
+                      : '?',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.otherUserName,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                  ),
-                ],
+                    Text(
+                      "En ligne",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           IconButton(onPressed: () {}, icon: const Icon(Icons.videocam)),
@@ -211,7 +225,6 @@ class _ChatPageState extends State<ChatPage> {
                   controller: _scrollController,
                   reverse: true,
                   itemCount: messages.length,
-                  // Dans le builder du StreamBuilder des messages
                   itemBuilder: (context, index) {
                     final messageDoc = messages[index];
                     final messageData = messageDoc.data() as Map<String, dynamic>;
