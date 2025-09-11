@@ -32,7 +32,7 @@ dependencies:
     sdk: flutter
 
   intl: ^0.18.1
-  firebase_core: ^3.5.0
+  firebase_core: ^3.15.2
   firebase_storage: ^12.4.10
   cloud_firestore: ^5.4.4
   firebase_auth: ^5.7.0
@@ -55,6 +55,10 @@ dependencies:
   smooth_page_indicator: ^1.2.1
   bottom_navy_bar: ^6.1.0
   animated_notch_bottom_bar: ^1.0.3
+  googleapis_auth: ^2.0.0
+  iconsax: ^0.0.8
+  firebase_ai: ^2.3.0
+  google_fonts: ^6.3.1
 
 dev_dependencies:
   flutter_test:

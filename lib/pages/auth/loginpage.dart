@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../composants/CustomButtom.dart';
-import '../admin/admin_dashboard.dart';
+import '../admin/dashboard_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -51,12 +51,12 @@ class _LoginPageState extends State<LoginPage> {
         password: password,
       );
 
-      // Vérifier si c'est l'administrateur
+// Vérifier si c'est l'administrateur
       if (email == adminEmail) {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const AdminDashboard()),
+          MaterialPageRoute(builder: (_) => DashboardScreen()),
         );
         return;
       }

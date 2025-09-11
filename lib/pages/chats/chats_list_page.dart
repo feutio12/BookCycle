@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../composants/common_components.dart';
 import '../../models/chats.dart';
+import '../chatbot/chatbot_service.dart';
 import 'chatpage.dart';
 import 'chat_utils.dart';
 
@@ -139,6 +140,18 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
             );
           },
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => ChatBotPage()),
+          );
+        },
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        tooltip: 'Parler avec notre assistant',
+        child: const Icon(Icons.chat),
       ),
     );
   }
