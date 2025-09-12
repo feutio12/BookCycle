@@ -151,7 +151,12 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         tooltip: 'Parler avec notre assistant',
-        child: const Icon(Icons.chat),
+        child: Image.asset(
+          'assets/images/robot-assistant.png',
+          width: 36,
+          height: 36,
+          color: Colors.white,
+        ),
       ),
     );
   }

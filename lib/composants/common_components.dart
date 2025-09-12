@@ -25,6 +25,7 @@ class AppColors {
   static const Color success = Color(0xFF66BB6A);
   static const Color warning = Color(0xFFFFA726);
   static const Color error = Color(0xFFEF5350);
+  static const backgroundGray = Color(0xFFF8FAFC);
 }
 
 
@@ -266,7 +267,6 @@ class ErrorMessage extends StatelessWidget {
     );
   }
 }
-
 
 // Composant de message d'information
 class InfoMessage extends StatelessWidget {

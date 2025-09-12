@@ -1,3 +1,4 @@
+// registerpage.dart - Version améliorée avec une interface plus joyeuse
 import 'package:bookcycle/pages/home/homepage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,9 +26,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
   // Constantes
   static const String adminEmail = 'admin@gmail.com';
-  static const String registerTitle = "S'INSCRIRE";
-  static const String haveAccountText = "Déjà un compte ? Se connecter";
-  static const String pageTitle = "Créer un compte";
+  static const String registerTitle = "Rejoignez la communauté BookCycle! 🌟";
+  static const String registerSubtitle = "Créez votre compte en quelques secondes";
+  static const String haveAccountText = "Déjà membre ? Connectez-vous";
 
   bool obscurePassword = true;
   bool obscureconfirmPassword = true;
@@ -108,43 +109,57 @@ class _RegisterPageState extends State<RegisterPage> {
 
     switch (e.code) {
       case 'weak-password':
-        errorMessage = 'Mot de passe trop faible';
+        errorMessage = 'Veuillez choisir un mot de passe plus fort';
         break;
       case 'email-already-in-use':
-        errorMessage = 'Email déjà utilisé';
+        errorMessage = 'Un compte existe déjà avec cet email';
         break;
       case 'invalid-email':
-        errorMessage = 'Email invalide';
+        errorMessage = 'Format d\'email invalide';
         break;
       case 'operation-not-allowed':
-        errorMessage = 'Opération non autorisée';
+        errorMessage = 'Cette opération n\'est pas autorisée';
         break;
       default:
-        errorMessage = "Erreur d'inscription";
+        errorMessage = "Une erreur s'est produite lors de l'inscription";
     }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.orange[700],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
     }
   }
 
   String? _nameValidator(String? value) {
-    if (value == null || value.isEmpty) return 'Nom requis';
-    if (value.length < 2) return 'Nom trop court';
+    if (value == null || value.isEmpty) return 'Veuillez saisir votre nom';
+    if (value.length < 2) return 'Le nom doit contenir au moins 2 caractères';
     return null;
   }
 
   String? _emailValidator(String? value) {
-    if (value == null || value.isEmpty) return 'Email requis';
-    if (!value.contains('@')) return 'Email invalide';
+    if (value == null || value.isEmpty) return 'Veuillez saisir votre email';
+    if (!value.contains('@')) return 'Format d\'email invalide';
     return null;
   }
 
   String? _passwordValidator(String? value) {
-    if (value == null || value.isEmpty) return 'Mot de passe requis';
-    if (value.length < 6) return '6 caractères minimum';
+    if (value == null || value.isEmpty) return 'Veuillez saisir un mot de passe';
+    if (value.length < 6) return 'Le mot de passe doit contenir au moins 6 caractères';
+
+    // Vérification de la force du mot de passe
+    if (!value.contains(RegExp(r'[A-Z]'))) {
+      return 'Incluez au moins une majuscule';
+    }
+    if (!value.contains(RegExp(r'[0-9]'))) {
+      return 'Incluez au moins un chiffre';
+    }
+
     return null;
   }
 
@@ -157,108 +172,191 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Déterminer si on est sur un écran large
+    final bool isLargeScreen = MediaQuery.of(context).size.width > 600;
+    final theme = Theme.of(context);
+
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                      pageTitle,
-                      style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold
-                      )
-                  ),
-                  Image.asset(
-                      "assets/images/BookCycle.png",
-                      height: 220
-                  ),
-                  const SizedBox(height: 30),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.green.shade50,
+              Colors.white,
+              Colors.blue.shade50,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: Container(
+              constraints: isLargeScreen
+                  ? const BoxConstraints(maxWidth: 500)
+                  : const BoxConstraints.expand(),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.all(isLargeScreen ? 32.0 : 24.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Illustration et titre
+                        Column(
+                          children: [
+                            Image.asset(
+                              "assets/images/BookCycle.png",
+                              height: isLargeScreen ? 180 : 150,
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              registerTitle,
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: theme.primaryColorDark,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              registerSubtitle,
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Colors.grey[700],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 30),
 
-                  // Name Field
-                  CustomTextField(
-                    controller: _nameController,
-                    labelText: 'Nom complet',
-                    hintext: "Entrez votre nom complet",
-                    prefixIcon: Icons.person,
-                    validator: _nameValidator,
-                  ),
-                  const SizedBox(height: 15),
+                        // Formulaire
+                        Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              children: [
+                                CustomTextField(
+                                  controller: _nameController,
+                                  labelText: 'Nom complet',
+                                  hintext: "Votre nom et prénom",
+                                  prefixIcon: Icons.person,
+                                  validator: _nameValidator,
+                                ),
+                                const SizedBox(height: 16),
 
-                  // Email Field
-                  CustomTextField(
-                    controller: _emailController,
-                    labelText: 'Email',
-                    hintext: "Entrez votre email",
-                    prefixIcon: Icons.email,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: _emailValidator,
-                  ),
-                  const SizedBox(height: 15),
+                                CustomTextField(
+                                  controller: _emailController,
+                                  labelText: 'Email',
+                                  hintext: "Votre adresse email",
+                                  prefixIcon: Icons.email,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: _emailValidator,
+                                ),
+                                const SizedBox(height: 16),
 
-                  // Password Field
-                  CustomTextField(
-                    controller: _passwordController,
-                    labelText: 'Mot de passe',
-                    hintext: "Entrez votre mot de passe",
-                    prefixIcon: Icons.lock,
-                    obscureText: obscurePassword,
-                    surfixIcon: IconButton(
-                        onPressed: () {
-                          setState(() {
-                            obscurePassword = !obscurePassword;
-                          });
-                        },
-                        icon: obscurePassword ? Icon(Icons.visibility_off, color: Colors.blue.shade300,) : Icon(Icons.visibility,color: Colors.blue.shade300,)
+                                CustomTextField(
+                                  controller: _passwordController,
+                                  labelText: 'Mot de passe',
+                                  hintext: "Créez un mot de passe sécurisé",
+                                  prefixIcon: Icons.lock,
+                                  obscureText: obscurePassword,
+                                  surfixIcon: IconButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          obscurePassword = !obscurePassword;
+                                        });
+                                      },
+                                      icon: obscurePassword
+                                          ? Icon(Icons.visibility_off, color: Colors.blue.shade300)
+                                          : Icon(Icons.visibility, color: Colors.blue.shade300)
+                                  ),
+                                  validator: _passwordValidator,
+                                ),
+                                const SizedBox(height: 16),
+
+                                CustomTextField(
+                                  controller: _confirmController,
+                                  labelText: 'Confirmer le mot de passe',
+                                  hintext: "Confirmez votre mot de passe",
+                                  prefixIcon: Icons.lock_outline,
+                                  obscureText: obscureconfirmPassword,
+                                  surfixIcon: IconButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          obscureconfirmPassword = !obscureconfirmPassword;
+                                        });
+                                      },
+                                      icon: obscureconfirmPassword
+                                          ? Icon(Icons.visibility_off, color: Colors.blue.shade300)
+                                          : Icon(Icons.visibility, color: Colors.blue.shade300)
+                                  ),
+                                  validator: _confirmPasswordValidator,
+                                ),
+                                const SizedBox(height: 24),
+
+                                CustomButton(
+                                  onPressed: _submitForm,
+                                  text: 'Créer mon compte',
+                                  isLoading: _isLoading,
+
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Lien de connexion
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Déjà inscrit ? ",
+                              style: TextStyle(color: Colors.grey[700]),
+                            ),
+                            GestureDetector(
+                              onTap: _isLoading
+                                  ? null
+                                  : () => Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const LoginPage()),
+                              ),
+                              child: Text(
+                                "Se connecter",
+                                style: TextStyle(
+                                  color: theme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Conditions d'utilisation
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            "En vous inscrivant, vous acceptez nos conditions d'utilisation et notre politique de confidentialité",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
                     ),
-                    validator: _passwordValidator,
                   ),
-                  const SizedBox(height: 15),
-
-                  // Confirm Password
-                  CustomTextField(
-                    controller: _confirmController,
-                    labelText: 'Confirmer mot de passe',
-                    hintext: "Confirmez votre mot de passe",
-                    prefixIcon: Icons.lock_outline,
-                    obscureText: obscureconfirmPassword,
-                    surfixIcon: IconButton(
-                        onPressed: () {
-                          setState(() {
-                            obscureconfirmPassword = !obscureconfirmPassword;
-                          });
-                        },
-                        icon: obscureconfirmPassword ? Icon(Icons.visibility_off, color: Colors.blue.shade300,) : Icon(Icons.visibility,color: Colors.blue.shade300,)
-                    ),
-                    validator: _confirmPasswordValidator,
-                  ),
-                  const SizedBox(height: 25),
-
-                  // Submit Button
-                  CustomButton(
-                    onPressed: _submitForm,
-                    text: registerTitle,
-                    isLoading: _isLoading,
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Login Link
-                  TextButton(
-                    onPressed: _isLoading ? null : () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const LoginPage())
-                    ),
-                    child: const Text(
-                      haveAccountText,
-                      style: TextStyle(color: Colors.blue),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
