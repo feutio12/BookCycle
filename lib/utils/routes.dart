@@ -63,7 +63,7 @@ class AppRoutes {
       case profile:
         return MaterialPageRoute(builder: (_) => ProfilePage(user: FirebaseAuth.instance.currentUser));
       case chats:
-        return MaterialPageRoute(builder: (_) => const DiscussionsListPage());
+        return MaterialPageRoute(builder: (_) => const ChatPage(chatId: chats, otherUserId: '', otherUserName: '',));
       case chatPage:
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(

@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../composants/common_components.dart';
 import '../../models/chats.dart';
 import '../chatbot/chatbot_service.dart';
-import 'chatpage.dart';
+import 'chatpage.dart' hide InfoMessage, ErrorMessage;
 import 'chat_utils.dart';
 
 class DiscussionsListPage extends StatefulWidget {
@@ -131,6 +131,7 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
                         ),
                       ),
                     ).then((_) {
+
                       // Rafraîchir la liste après retour de la discussion
                       _refreshDiscussions();
                     });
@@ -138,7 +139,7 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
                 );
               },
             );
-          },
+          }
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -156,7 +157,7 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
           width: 36,
           height: 36,
           color: Colors.white,
-        ),
+        )
       ),
     );
   }
@@ -173,6 +174,7 @@ class _DiscussionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: Colors.blue,
@@ -201,6 +203,7 @@ class _DiscussionTile extends StatelessWidget {
               : FontWeight.normal,
         ),
       ),
+
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

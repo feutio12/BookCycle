@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -32,12 +34,30 @@ class _ChatPageState extends State<ChatPage> {
   bool _isSending = false;
   bool _isInitializing = true;
   Set<String> _readMessages = {};
+  bool _isOtherUserOnline = false;
+  late final StreamSubscription<DocumentSnapshot> _userStatusSubscription;
 
   @override
   void initState() {
     super.initState();
     _initializeChat();
     _prefillInitialMessage();
+    _subscribeToUserStatus();
+  }
+
+  void _subscribeToUserStatus() {
+    // Écouter les changements de statut de l'autre utilisateur
+    _userStatusSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.otherUserId)
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _isOtherUserOnline = snapshot.data()?['isOnline'] ?? false;
+        });
+      }
+    });
   }
 
   Future<void> _initializeChat() async {
@@ -54,11 +74,21 @@ class _ChatPageState extends State<ChatPage> {
       });
 
       _markMessagesAsRead();
+
+      // Scroll to bottom after initialization
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(0);
+        }
+      });
     } catch (e) {
       debugPrint('Erreur lors de l\'initialisation du chat: $e');
       setState(() {
         _isInitializing = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de l\'initialisation du chat: $e')),
+      );
     }
   }
 
@@ -139,6 +169,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _userStatusSubscription.cancel();
     super.dispose();
   }
 
@@ -179,9 +210,9 @@ class _ChatPageState extends State<ChatPage> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Text(
-                      "En ligne",
+                      _isOtherUserOnline ? "En ligne" : "Hors ligne",
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.green,
+                        color: _isOtherUserOnline ? Colors.green : Colors.grey,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -192,9 +223,44 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.videocam)),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.call)),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert)),
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.videocam),
+            tooltip: 'Appel vidéo',
+          ),
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.call),
+            tooltip: 'Appel vocal',
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PublisherProfilePage(
+                      publisherId: widget.otherUserId,
+                      publisherName: widget.otherUserName,
+                    ),
+                  ),
+                );
+              } else if (value == 'clear') {
+                _showClearChatDialog();
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'profile',
+                child: Text('Voir le profil'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'clear',
+                child: Text('Effacer la conversation'),
+              ),
+            ],
+          ),
         ],
       ),
       body: Column(
@@ -206,7 +272,12 @@ class _ChatPageState extends State<ChatPage> {
               stream: _messagesStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(child: Text('Erreur: ${snapshot.error}'));
+                  return Center(
+                    child: ErrorMessage(
+                      message: 'Erreur: ${snapshot.error}',
+                      onRetry: _initializeChat,
+                    ),
+                  );
                 }
 
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -217,7 +288,10 @@ class _ChatPageState extends State<ChatPage> {
 
                 if (messages.isEmpty) {
                   return const Center(
-                    child: Text('Aucun message pour le moment'),
+                    child: InfoMessage(
+                      message: 'Aucun message pour le moment',
+                      icon: Icons.chat_bubble_outline,
+                    ),
                   );
                 }
 
@@ -239,14 +313,12 @@ class _ChatPageState extends State<ChatPage> {
                     );
 
                     final isMe = message.senderId == _auth.currentUser?.uid;
-
-                    // Pour les messages de l'utilisateur courant, afficher l'indicateur de lecture
                     final isRead = isMe ? message.isRead : true;
 
                     return MessageBubble(
                       message: message,
                       isMe: isMe,
-                      isRead: isRead, // Passer l'état de lecture
+                      isRead: isRead,
                     );
                   },
                 );
@@ -257,6 +329,91 @@ class _ChatPageState extends State<ChatPage> {
             controller: _messageController,
             onSend: _sendMessage,
             isSending: _isSending,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClearChatDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Effacer la conversation'),
+          content: const Text('Êtes-vous sûr de vouloir effacer toute la conversation? Cette action est irréversible.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Implémenter la logique pour effacer la conversation
+              },
+              child: const Text('Effacer', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// Composants supplémentaires pour une meilleure expérience
+class ErrorMessage extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+
+  const ErrorMessage({super.key, required this.message, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('Réessayer'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class InfoMessage extends StatelessWidget {
+  final String message;
+  final IconData icon;
+
+  const InfoMessage({super.key, required this.message, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 48, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
           ),
         ],
       ),

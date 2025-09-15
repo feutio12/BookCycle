@@ -1,3 +1,8 @@
+import 'dart:async';
+
+import 'package:bookcycle/pages/chats/chat_service.dart';
+import 'package:bookcycle/pages/enchere/enchere_complete.dart';
+import 'package:bookcycle/pages/enchere/payment_service.dart';
 import 'package:bookcycle/pages/onboarding/navigate.dart';
 import 'package:bookcycle/pages/onboarding/animation.dart';
 import 'package:bookcycle/pages/auth/loginpage.dart';
@@ -9,6 +14,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+GlobalKey<ScaffoldMessengerState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -18,6 +25,18 @@ void main() async {
     );
     runApp(const MyApp());
   } catch (e) {
+
+    // Initialiser Stripe
+    PaymentService.init();
+
+    // Démarrer le service de vérification des enchères terminées
+    AuctionCompletionService().checkCompletedAuctions();
+
+    // Planifier une vérification périodique (toutes les heures)
+    Timer.periodic(const Duration(hours: 1), (timer) {
+      AuctionCompletionService().checkCompletedAuctions();
+    });
+
     // Fallback en cas d'erreur Firebase
     runApp(const MaterialApp(
       home: Scaffold(

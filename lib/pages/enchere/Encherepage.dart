@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:bookcycle/pages/enchere/payment_dialog.dart';
+import 'package:bookcycle/pages/enchere/payment_service.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bookcycle/models/auction.dart';
@@ -10,6 +12,7 @@ import '../../composants/common_utils.dart';
 import '../auth/loginpage.dart';
 import 'add_enchere.dart';
 import 'auction_views.dart';
+import 'card_details.dart';
 
 class AuctionPage extends StatefulWidget {
   const AuctionPage({super.key});
@@ -133,28 +136,38 @@ class _AuctionPageState extends State<AuctionPage> {
             onPressed: () async {
               if (cleFormulaire.currentState!.validate()) {
                 final nouvelleOffre = double.parse(controleurOffre.text);
-                try {
-                  await _firestore.collection('encheres').doc(enchere.id).update({
-                    'prixActuel': nouvelleOffre,
-                    'nombreEncherisseurs': FieldValue.increment(1),
-                    'dernierEncherisseur': _auth.currentUser!.uid,
-                    'derniereOffre': FieldValue.serverTimestamp(),
-                  });
 
-                  await _firestore.collection('encheres').doc(enchere.id)
-                      .collection('offres').add({
-                    'montant': nouvelleOffre,
-                    'userId': _auth.currentUser!.uid,
-                    'userName': _auth.currentUser!.displayName ?? 'Utilisateur',
-                    'date': FieldValue.serverTimestamp(),
-                    'type': 'offre_utilisateur'
-                  });
+                // Afficher le dialogue de paiement
+                final paymentResult = await _processPayment(nouvelleOffre, enchere);
 
-                  Navigator.pop(ctx);
-                  AppUtils.showSuccessSnackBar(context, 'Offre soumise avec succès!');
-                } catch (e) {
-                  Navigator.pop(ctx);
-                  AppUtils.showErrorSnackBar(context, 'Erreur: ${e.toString()}');
+                if (paymentResult['success'] == true) {
+                  try {
+                    await _firestore.collection('encheres').doc(enchere.id).update({
+                      'prixActuel': nouvelleOffre,
+                      'nombreEncherisseurs': FieldValue.increment(1),
+                      'dernierEncherisseur': _auth.currentUser!.uid,
+                      'derniereOffre': FieldValue.serverTimestamp(),
+                    });
+
+                    await _firestore.collection('encheres').doc(enchere.id)
+                        .collection('offres').add({
+                      'montant': nouvelleOffre,
+                      'userId': _auth.currentUser!.uid,
+                      'userName': _auth.currentUser!.displayName ?? 'Utilisateur',
+                      'date': FieldValue.serverTimestamp(),
+                      'type': 'offre_utilisateur',
+                      'paymentIntentId': paymentResult['paymentIntentId'],
+                      'paymentStatus': 'reserved'
+                    });
+
+                    Navigator.pop(ctx);
+                    AppUtils.showSuccessSnackBar(context, 'Offre soumise avec succès! Paiement réservé.');
+                  } catch (e) {
+                    Navigator.pop(ctx);
+                    AppUtils.showErrorSnackBar(context, 'Erreur: ${e.toString()}');
+                  }
+                } else {
+                  AppUtils.showErrorSnackBar(context, 'Erreur de paiement: ${paymentResult['error']}');
                 }
               }
             },
@@ -163,11 +176,37 @@ class _AuctionPageState extends State<AuctionPage> {
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Confirmer'),
+            child: const Text('Payer et confirmer'),
           ),
         ],
       ),
     );
+  }
+
+  Future<Map<String, dynamic>> _processPayment(double amount, Enchere enchere) async {
+    // Créer l'intention de paiement
+    final paymentIntent = await PaymentService.createPaymentIntent(
+        amount,
+        'xof', // XOF pour le Franc CFA
+        enchere.id,
+        _auth.currentUser!.uid
+    );
+
+    // Afficher l'interface de paiement
+    final cardDetails = await showDialog<CardDetails>(
+      context: context,
+      builder: (ctx) => PaymentDialog(
+        clientSecret: paymentIntent['client_secret'],
+        amount: amount,
+      ),
+    );
+
+    if (cardDetails != null) {
+      // Confirmer le paiement
+      return await PaymentService.confirmPayment(paymentIntent['client_secret'], cardDetails);
+    }
+
+    return {'success': false, 'error': 'Paiement annulé'};
   }
 
   @override

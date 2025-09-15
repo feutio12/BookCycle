@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
 import '../../models/chats.dart';
 
 class ChatUtils {
@@ -21,9 +20,7 @@ class ChatUtils {
   static String getChatTitle(Map<String, dynamic> chatData, String currentUserId) {
     final participants = List<String>.from(chatData['participants'] ?? []);
     final otherParticipants = participants.where((id) => id != currentUserId).toList();
-
     if (otherParticipants.isEmpty) return 'Discussion';
-
     return chatData['otherUserName'] ?? 'Utilisateur';
   }
 }
@@ -32,7 +29,6 @@ class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isMe;
   final bool isRead; // Nouveau paramètre
-
   const MessageBubble({
     super.key,
     required this.message,
@@ -60,7 +56,7 @@ class MessageBubble extends StatelessWidget {
               style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
             ),
           ),
-        ),
+        )
       );
     }
 

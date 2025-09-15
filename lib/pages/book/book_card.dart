@@ -1,11 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:convert';
 
 import '../../composants/CustomButtom.dart';
 import '../../composants/common_components.dart';
+import '../chats/chat_service.dart';
+import '../chats/chatpage.dart';
+import 'book_details_modal.dart'; // Nouveau fichier pour le modal
 
-class BookCard extends StatelessWidget {
+class BookCard extends StatefulWidget {
   final Map<String, dynamic> book;
   final ColorScheme colorScheme;
   final TextTheme textTheme;
@@ -28,42 +33,214 @@ class BookCard extends StatelessWidget {
   });
 
   @override
+  State<BookCard> createState() => _BookCardState();
+}
+
+class _BookCardState extends State<BookCard> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  bool _isHovered = false;
+  bool _isLiked = false;
+  Timer? _likeDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _isLiked = widget.book['isLiked'] ?? false;
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.fastOutSlowIn,
+      ),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        _animationController.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _likeDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _handleLike() {
+    setState(() {
+      _isLiked = !_isLiked;
+    });
+
+    _likeDebounce?.cancel();
+
+    _likeDebounce = Timer(const Duration(milliseconds: 300), () {
+      widget.onLikePressed(widget.book['id'] ?? (widget.book as DocumentSnapshot).id);
+    });
+  }
+
+  void _handleContactPublisher(BuildContext context) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vous devez être connecté pour contacter un publiateur')),
+        );
+        return;
+      }
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => ScaleTransition(
+          scale: CurvedAnimation(
+            parent: ModalRoute.of(context)!.animation!,
+            curve: Curves.elasticOut,
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
+              strokeWidth: 4,
+            ),
+          ),
+        ),
+      );
+
+      final chatId = await ChatService.getOrCreateChat(
+        currentUser.uid,
+        widget.book['publisherEmail'],
+        widget.book['publisherName'],
+      );
+
+      Navigator.of(context, rootNavigator: true).pop();
+
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => ChatPage(
+            chatId: chatId,
+            otherUserId: widget.book['publisherEmail'],
+            otherUserName: widget.book['publisherName'],
+            initialMessage: 'Bonjour, je suis intéressé par votre livre "${widget.book['title']}"',
+          ),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(1.0, 0.0);
+            const end = Offset.zero;
+            const curve = Curves.easeInOutQuart;
+
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+
+            return SlideTransition(
+              position: animation.drive(tween),
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
+    } catch (e) {
+      try {
+        Navigator.of(context, rootNavigator: true).pop();
+      } catch (_) {}
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: ${e.toString()}'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bookData = _extractBookData();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1976D2).withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => _showBookDetails(context, bookData),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // En-tête avec badge populaire
-                if (bookData['isPopular']) _buildPopularBadge(),
-
-                // Contenu principal
-                _buildBookContent(bookData),
-
-                // Publié par et pages
-                const SizedBox(height: 12),
-                _buildFooter(bookData),
-              ],
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _isHovered = true),
+            onExit: (_) => setState(() => _isHovered = false),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1976D2).withOpacity(_isHovered ? 0.2 : 0.1),
+                    blurRadius: _isHovered ? 25 : 20,
+                    spreadRadius: _isHovered ? 0.5 : 0,
+                    offset: Offset(0, _isHovered ? 12 : 8),
+                  ),
+                ],
+                gradient: _isHovered
+                    ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,
+                    Colors.blue.shade50,
+                  ],
+                )
+                    : null,
+              ),
+              transform: Matrix4.identity()..translate(0.0, _isHovered ? -4.0 : 0.0),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(24),
+                  onTap: () => _showBookDetails(context, bookData),
+                  hoverColor: Colors.transparent,
+                  highlightColor: Colors.blue.withOpacity(0.1),
+                  splashColor: Colors.blue.withOpacity(0.2),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (bookData['isPopular']) _buildPopularBadge(),
+                        _buildBookContent(bookData),
+                        const SizedBox(height: 12),
+                        _buildFooter(bookData),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -71,7 +248,6 @@ class BookCard extends StatelessWidget {
     );
   }
 
-  // Méthodes helper pour organiser le code
   Widget _buildPopularBadge() {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -83,15 +259,36 @@ class BookCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withOpacity(0.4),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Text(
-        '🌟 POPULAIRE',
-        style: textTheme.labelSmall?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-          fontSize: 10,
-          letterSpacing: 1,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ShaderMask(
+            shaderCallback: (bounds) => const RadialGradient(
+              center: Alignment.topLeft,
+              colors: [Colors.white, Colors.amber],
+              tileMode: TileMode.mirror,
+            ).createShader(bounds),
+            child: const Icon(Icons.star_rounded, size: 16, color: Colors.white),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'POPULAIRE',
+            style: widget.textTheme.labelSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 10,
+              letterSpacing: 1,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -102,12 +299,8 @@ class BookCard extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image du livre
             _buildBookImage(bookData['imageUrl'], size: 80, height: 100),
-
             const SizedBox(width: 16),
-
-            // Détails du livre
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,7 +315,6 @@ class BookCard extends StatelessWidget {
             ),
           ],
         ),
-
         const SizedBox(height: 12),
         _buildPriceRatingSection(bookData),
       ],
@@ -133,23 +325,31 @@ class BookCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          bookData['title'],
-          style: textTheme.titleMedium?.copyWith(
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 200),
+          style: widget.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w800,
             fontSize: 18,
             color: const Color(0xFF1A237E),
             height: 1.3,
+            shadows: _isHovered ? [
+              Shadow(
+                color: Colors.blue.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              )
+            ] : null,
+          ) ?? TextStyle(),
+          child: Text(
+            bookData['title'],
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
-
         const SizedBox(height: 4),
-
         Text(
           'par ${bookData['author']}',
-          style: textTheme.bodyMedium?.copyWith(
+          style: widget.textTheme.bodyMedium?.copyWith(
             color: const Color(0xFF546E7A),
             fontWeight: FontWeight.w500,
             fontStyle: FontStyle.italic,
@@ -185,7 +385,7 @@ class BookCard extends StatelessWidget {
   Widget _buildDescription(Map<String, dynamic> bookData) {
     return Text(
       bookData['description'],
-      style: textTheme.bodySmall?.copyWith(
+      style: widget.textTheme.bodySmall?.copyWith(
         color: const Color(0xFF607D8B),
         height: 1.5,
       ),
@@ -197,19 +397,30 @@ class BookCard extends StatelessWidget {
   Widget _buildPriceRatingSection(Map<String, dynamic> bookData) {
     return Row(
       children: [
-        // Prix
         Expanded(
-          child: Text(
-            '${bookData['price']} FCFA',
-            style: textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF1976D2),
-              fontSize: 16,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '${bookData['price']} ',
+                  style: widget.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1976D2),
+                    fontSize: 16,
+                  ),
+                ),
+                TextSpan(
+                  text: 'FCFA',
+                  style: widget.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF78909C),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-
-        // Note et likes
         Row(
           children: [
             _buildRatingStars(bookData['rating']),
@@ -224,17 +435,21 @@ class BookCard extends StatelessWidget {
   Widget _buildFooter(Map<String, dynamic> bookData) {
     return Row(
       children: [
-        Text(
-          'Publié par ${bookData['publisherName']}',
-          style: textTheme.bodySmall?.copyWith(
-            color: const Color(0xFF90A4AE),
-            fontStyle: FontStyle.italic,
+        Flexible(
+          child: Text(
+            'Publié par ${bookData['publisherName']}',
+            style: widget.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF90A4AE),
+              fontStyle: FontStyle.italic,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         const Spacer(),
         Text(
           '${bookData['pages']} pages',
-          style: textTheme.bodySmall?.copyWith(
+          style: widget.textTheme.bodySmall?.copyWith(
             color: const Color(0xFF78909C),
           ),
         ),
@@ -243,12 +458,20 @@ class BookCard extends StatelessWidget {
   }
 
   Widget _buildInfoChip(IconData icon, String text, Color color) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withOpacity(0.3), width: 1),
+        boxShadow: _isHovered ? [
+          BoxShadow(
+            color: color.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          )
+        ] : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -257,7 +480,7 @@ class BookCard extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             text,
-            style: textTheme.labelSmall?.copyWith(
+            style: widget.textTheme.labelSmall?.copyWith(
               color: color,
               fontWeight: FontWeight.w600,
               fontSize: 11,
@@ -280,7 +503,7 @@ class BookCard extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           (rating / 20).toStringAsFixed(1),
-          style: textTheme.bodySmall?.copyWith(
+          style: widget.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.w700,
             color: Colors.amber[800],
           ),
@@ -290,39 +513,64 @@ class BookCard extends StatelessWidget {
   }
 
   Widget _buildLikeButton(String bookId, int likes) {
-    final isLiked = book['isLiked'] ?? false;
-
     return InkWell(
-      onTap: () => onLikePressed(bookId),
+      onTap: _handleLike,
       borderRadius: BorderRadius.circular(20),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isLiked
+          color: _isLiked
               ? Colors.pink.withOpacity(0.15)
               : Colors.grey.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isLiked
+            color: _isLiked
                 ? Colors.pink.withOpacity(0.3)
                 : Colors.grey.withOpacity(0.2),
             width: 1,
           ),
+          boxShadow: _isHovered ? [
+            BoxShadow(
+              color: (_isLiked ? Colors.pink : Colors.grey).withOpacity(0.2),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            )
+          ] : null,
         ),
         child: Row(
           children: [
-            Icon(
-              isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              size: 18,
-              color: isLiked ? Colors.pink[400] : Colors.grey[500],
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, animation) => ScaleTransition(
+                scale: animation,
+                child: child,
+              ),
+              child: Icon(
+                _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                key: ValueKey<bool>(_isLiked),
+                size: 18,
+                color: _isLiked ? Colors.pink[400] : Colors.grey[500],
+              ),
             ),
             const SizedBox(width: 6),
-            Text(
-              likes.toString(),
-              style: textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: isLiked ? Colors.pink[600] : Colors.grey[600],
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 300),
+              firstChild: Text(
+                (_isLiked ? likes : likes).toString(),
+                style: widget.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: _isLiked ? Colors.pink[600] : Colors.grey[600],
+                ),
               ),
+              secondChild: Text(
+                (_isLiked ? likes : likes).toString(),
+                style: widget.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: _isLiked ? Colors.pink[600] : Colors.grey[600],
+                ),
+              ),
+              crossFadeState: _isLiked ? CrossFadeState.showFirst : CrossFadeState.showSecond,
             ),
           ],
         ),
@@ -331,32 +579,73 @@ class BookCard extends StatelessWidget {
   }
 
   Widget _buildBookImage(String? base64Data, {double size = 80, double height = 100}) {
-    return Container(
-      width: size,
-      height: height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: base64Data != null && base64Data.isNotEmpty
-            ? Image.memory(
-          base64.decode(base64Data),
-          fit: BoxFit.cover,
+    return Hero(
+      tag: 'book-image-${widget.book['id']}',
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
           width: size,
           height: height,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildPlaceholderIcon();
-          },
-        )
-            : _buildPlaceholderIcon(),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+                spreadRadius: 0.5,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              children: [
+                if (base64Data != null && base64Data.isNotEmpty)
+                  Positioned.fill(
+                    child: Image.memory(
+                      base64.decode(base64Data),
+                      fit: BoxFit.cover,
+                      width: size,
+                      height: height,
+                    ),
+                  ),
+
+                if (base64Data != null && base64Data.isNotEmpty)
+                  Image.memory(
+                    base64.decode(base64Data),
+                    fit: BoxFit.cover,
+                    width: size,
+                    height: height,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildPlaceholderIcon();
+                    },
+                  )
+                else
+                  _buildPlaceholderIcon(),
+
+                Positioned.fill(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 300),
+                    opacity: _isHovered ? 0.1 : 0.0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.blue.withOpacity(0.3),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -369,319 +658,28 @@ class BookCard extends StatelessWidget {
   }
 
   void _showBookDetails(BuildContext context, Map<String, dynamic> bookData) {
-    final isOwner = currentUserId == book['publisherEmail'];
+    final isOwner = widget.currentUserId == widget.book['publisherEmail'];
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return _buildBookDetailsModal(bookData, isOwner, context);
+        return BookDetailsModal(
+          book: widget.book,
+          bookData: bookData,
+          isOwner: isOwner,
+          currentUserId: widget.currentUserId,
+          onEditBook: widget.onEditBook,
+          onDeleteBook: widget.onDeleteBook,
+          onContactPublisher: _handleContactPublisher,
+        );
       },
     );
   }
 
-  Widget _buildBookDetailsModal(Map<String, dynamic> bookData, bool isOwner, BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      margin: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 40,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildDragHandle(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildModalHeader(bookData, isOwner, context),
-                  const SizedBox(height: 16),
-                  _buildModalImage(bookData),
-                  const SizedBox(height: 20),
-                  _buildInfoGrid(bookData),
-                  const SizedBox(height: 20),
-                  _buildRatingSection(bookData),
-                  const SizedBox(height: 16),
-                  _buildDescriptionSection(bookData),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          ),
-          _buildActionButtons(bookData, isOwner, context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDragHandle() {
-    return Container(
-      width: 60,
-      height: 6,
-      margin: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        borderRadius: BorderRadius.circular(3),
-      ),
-    );
-  }
-
-  Widget _buildModalHeader(Map<String, dynamic> bookData, bool isOwner, BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            bookData['title'],
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-              color: AppColors.textPrimary,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        if (isOwner)
-          IconButton(
-            icon: const Icon(Icons.close, color: AppColors.textSecondary),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildModalImage(Map<String, dynamic> bookData) {
-    return Center(
-      child: _buildBookImage(
-        bookData['imageUrl'],
-        size: 180,
-        height: 200,
-      ),
-    );
-  }
-
-  Widget _buildInfoGrid(Map<String, dynamic> bookData) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 3,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 8,
-      children: [
-        _buildInfoItem(
-          icon: Icons.person,
-          label: 'Auteur',
-          value: bookData['author'],
-        ),
-        _buildInfoItem(
-          icon: Icons.category,
-          label: 'Catégorie',
-          value: bookData['category'],
-        ),
-        _buildInfoItem(
-          icon: Icons.auto_awesome,
-          label: 'État',
-          value: bookData['condition'],
-        ),
-        _buildInfoItem(
-          icon: Icons.type_specimen,
-          label: 'Type',
-          value: bookData['type'],
-        ),
-        _buildInfoItem(
-          icon: Icons.library_books,
-          label: 'Pages',
-          value: '${bookData['pages']}',
-        ),
-        _buildInfoItem(
-          icon: Icons.attach_money,
-          label: 'Prix',
-          value: '${bookData['price']} FCFA',
-          valueColor: AppColors.success,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInfoItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    Color? valueColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: SingleChildScrollView(
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: AppColors.primaryBlue),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: valueColor ?? AppColors.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRatingSection(Map<String, dynamic> bookData) {
-    return Row(
-      children: [
-        const Icon(Icons.star, color: Colors.amber, size: 20),
-        const SizedBox(width: 8),
-        Text(
-          '${(bookData['rating'] / 20).toStringAsFixed(1)}',
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDescriptionSection(Map<String, dynamic> bookData) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Description',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          bookData['description'],
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            height: 1.7,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons(Map<String, dynamic> bookData, bool isOwner, BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundLight,
-        border: Border(top: BorderSide(color: Colors.grey[200]!)),
-      ),
-      child: Row(
-        children: [
-          if (isOwner) ...[
-            Expanded(
-              child: CustomButton(
-                text: 'Modifier',
-                onPressed: () {
-                  Navigator.pop(context);
-                  onEditBook(book);
-                },
-                backgroundColor: AppColors.primaryBlue,
-                textColor: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: CustomButton(
-                text: 'Supprimer',
-                onPressed: () {
-                  Navigator.pop(context);
-                  onDeleteBook(bookData['id']);
-                },
-                backgroundColor: AppColors.error,
-                textColor: Colors.white,
-              ),
-            ),
-          ] else ...[
-            Expanded(
-              child: CustomButton(
-                text: 'Contacter',
-                onPressed: () {
-                  Navigator.pop(context);
-                  onContactPublisher(
-                    book['publisherEmail'],
-                    book['publisherName'],
-                    bookData['title'],
-                  );
-                },
-                backgroundColor: AppColors.success,
-                textColor: Colors.white,
-              ),
-            ),
-          ],
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                side: BorderSide(color: AppColors.primaryBlue),
-              ),
-              child: const Text(
-                'Fermer',
-                style: TextStyle(color: AppColors.primaryBlue),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Map<String, dynamic> _extractBookData() {
-    dynamic rating = book['rating'];
+    dynamic rating = widget.book['rating'];
     double finalRating = 0.0;
 
     if (rating != null) {
@@ -693,29 +691,29 @@ class BookCard extends StatelessWidget {
     }
 
     String bookId = '';
-    if (book is DocumentSnapshot) {
-      bookId = (book as DocumentSnapshot).id;
-    } else if (book['id'] is String) {
-      bookId = book['id'];
+    if (widget.book is DocumentSnapshot) {
+      bookId = (widget.book as DocumentSnapshot).id;
+    } else if (widget.book['id'] is String) {
+      bookId = widget.book['id'];
     }
 
     return {
-      'imageUrl': book['imageUrl'] as String? ?? '',
-      'title': book['title'] as String? ?? 'Titre non spécifié',
-      'author': book['author'] as String? ?? 'Auteur inconnu',
-      'publisherName': book['publisherName'] as String? ?? 'Anonyme',
-      'description': book['description'] as String? ?? 'Description non disponible',
+      'imageUrl': widget.book['imageUrl'] as String? ?? '',
+      'title': widget.book['title'] as String? ?? 'Titre non spécifié',
+      'author': widget.book['author'] as String? ?? 'Auteur inconnu',
+      'publisherName': widget.book['publisherName'] as String? ?? 'Anonyme',
+      'description': widget.book['description'] as String? ?? 'Description non disponible',
       'rating': finalRating,
-      'category': book['category'] as String? ?? 'Non catégorisé',
-      'isPopular': book['isPopular'] as bool? ?? false,
-      'likes': (book['likes'] as int?) ?? 0,
+      'category': widget.book['category'] as String? ?? 'Non catégorisé',
+      'isPopular': widget.book['isPopular'] as bool? ?? false,
+      'likes': (widget.book['likes'] as int?) ?? 0,
       'id': bookId,
-      'price': (book['price'] is int ? book['price'] as int? :
-      book['price'] is double ? (book['price'] as double).toInt() : 0) ?? 0,
-      'pages': (book['pages'] is int ? book['pages'] as int? :
-      book['pages'] is double ? (book['pages'] as double).toInt() : 0) ?? 0,
-      'condition': book['condition'] as String? ?? 'Bon état',
-      'type': book['type'] as String? ?? 'Échange',
+      'price': (widget.book['price'] is int ? widget.book['price'] as int? :
+      widget.book['price'] is double ? (widget.book['price'] as double).toInt() : 0) ?? 0,
+      'pages': (widget.book['pages'] is int ? widget.book['pages'] as int? :
+      widget.book['pages'] is double ? (widget.book['pages'] as double).toInt() : 0) ?? 0,
+      'condition': widget.book['condition'] as String? ?? 'Bon état',
+      'type': widget.book['type'] as String? ?? 'Échange',
     };
   }
 }

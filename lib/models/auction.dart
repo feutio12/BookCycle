@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Enchere {
   final String id;
   final String titre;
-  final String imageUrl; // Ajoutez ce champ
+  final String imageUrl;
   final String? description;
   final double prixActuel;
   final double? prixDepart;
@@ -11,11 +11,13 @@ class Enchere {
   final String? etatLivre;
   final String? gagnant;
   final bool estActive;
+  final String? paymentIntentId; // Nouveau champ pour l'ID de l'intention de paiement
+  final String? statutPaiement; // Nouveau champ pour le statut du paiement
 
   Enchere({
     required this.id,
     required this.titre,
-    required this.imageUrl, // Ajoutez ce champ
+    required this.imageUrl,
     this.description,
     required this.prixActuel,
     this.prixDepart,
@@ -23,6 +25,8 @@ class Enchere {
     this.etatLivre,
     this.gagnant,
     required this.estActive,
+    this.paymentIntentId,
+    this.statutPaiement,
   });
 
   factory Enchere.fromFirestore(DocumentSnapshot doc) {
@@ -30,7 +34,7 @@ class Enchere {
     return Enchere(
       id: doc.id,
       titre: data['titre'] ?? 'Sans titre',
-      imageUrl: data['imageUrl'] ?? '', // Ajoutez ce champ
+      imageUrl: data['imageUrl'] ?? '',
       description: data['description'],
       prixActuel: (data['prixActuel'] as num?)?.toDouble() ?? 0.0,
       prixDepart: (data['prixDepart'] as num?)?.toDouble(),
@@ -40,6 +44,8 @@ class Enchere {
       estActive: data['dateFin'] != null
           ? (data['dateFin'] as Timestamp).toDate().isAfter(DateTime.now())
           : false,
+      paymentIntentId: data['paymentIntentId'],
+      statutPaiement: data['statutPaiement'],
     );
   }
 }

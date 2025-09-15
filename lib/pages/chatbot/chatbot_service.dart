@@ -153,6 +153,7 @@ class _ChatBotPageState extends State<ChatBotPage> {
       final prompt = "Tu es BookCycle Assistant, un chatbot utile et amical pour une application d'échange de livres appelée BookCycle. "
           "L'application permet aux utilisateurs d'échanger et vendre des livres d'occasion. "
           "Réponds toujours en français. Sois concis, utile et amical. "
+          "mettre directement les caracteres en gras et non dans des asteris"
           "Question de l'utilisateur: $message";
 
       // Générer la réponse avec le modèle Gemini
