@@ -7,7 +7,21 @@ class ChatService {
 
   static String generateChatId(String userId1, String userId2) {
     final ids = [userId1, userId2]..sort();
-    return 'chat_${ids[0]}_${ids[1]}';
+    return '${ids[0]}_${ids[1]}';
+  }
+
+  static Future<void> updateMessageReadStatus(String chatId, String messageId, bool isRead) async {
+    try {
+      await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId)
+          .update({'read': isRead});
+    } catch (e) {
+      print('Erreur lors de la mise à jour du statut de lecture: $e');
+      rethrow;
+    }
   }
 
   static Future<String> getOrCreateChat(String currentUserId, String otherUserId, String otherUserName) async {
@@ -46,6 +60,7 @@ class ChatService {
     }
   }
 
+  // Méthode pour marquer les messages comme lus
   static Future<void> markMessagesAsRead(String chatId) async {
     try {
       final currentUser = _auth.currentUser;
@@ -104,16 +119,23 @@ class ChatService {
       final currentUser = _auth.currentUser;
       if (currentUser == null) throw Exception('Utilisateur non connecté');
 
+      // Récupérer le profil complet de l'utilisateur depuis Firestore
+      final userProfile = await getUserProfile(currentUser.uid);
+      final String senderName = userProfile?['name'] ??
+          userProfile?['username'] ??
+          currentUser.displayName ??
+          'Anonyme';
+
       final messageData = {
         'senderId': currentUser.uid,
-        'senderName': currentUser.displayName ?? 'Anonyme',
+        'senderName': senderName, // Utiliser le nom depuis Firestore
         'content': content,
         'timestamp': FieldValue.serverTimestamp(),
         'read': false,
       };
 
       // Ajouter le message
-      await _firestore
+      final messageRef = await _firestore
           .collection('chats')
           .doc(chatId)
           .collection('messages')
@@ -136,6 +158,7 @@ class ChatService {
         lastMessage: content,
         lastMessageSenderId: currentUser.uid,
         incrementUnread: false,
+        messageId: messageRef.id,
       );
 
       // Mettre à jour la référence de chat du destinataire
@@ -143,10 +166,11 @@ class ChatService {
         userId: otherUserId,
         chatId: chatId,
         otherUserId: currentUser.uid,
-        otherUserName: currentUser.displayName ?? 'Utilisateur',
+        otherUserName: senderName, // Utiliser le nom récupéré
         lastMessage: content,
         lastMessageSenderId: currentUser.uid,
         incrementUnread: true,
+        messageId: messageRef.id,
       );
 
     } catch (e) {
@@ -163,6 +187,7 @@ class ChatService {
     required String lastMessage,
     required String lastMessageSenderId,
     required bool incrementUnread,
+    required String messageId,
   }) async {
     try {
       final updateData = {
@@ -171,6 +196,7 @@ class ChatService {
         'lastMessage': lastMessage,
         'lastMessageTime': FieldValue.serverTimestamp(),
         'lastMessageSenderId': lastMessageSenderId,
+        'lastMessageId': messageId, // Stocker l'ID du dernier message
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
@@ -204,7 +230,12 @@ class ChatService {
         final currentUser = _auth.currentUser;
         if (currentUser == null) throw Exception('Utilisateur non connecté');
 
-        final currentUserName = currentUser.displayName ?? 'Utilisateur';
+        // Récupérer le profil complet de l'utilisateur courant
+        final currentUserProfile = await getUserProfile(currentUser.uid);
+        final String currentUserName = currentUserProfile?['name'] ??
+            currentUserProfile?['username'] ??
+            currentUser.displayName ??
+            'Utilisateur';
 
         // Structure de données pour le chat principal
         final chatData = {
@@ -238,29 +269,35 @@ class ChatService {
             .add(messageData);
 
         // Références utilisateur
-        final systemMessage = 'Conversation démarrée';
+        final userChatData = {
+          'otherUserId': otherUserId,
+          'otherUserName': otherUserName,
+          'lastMessage': 'Conversation démarrée',
+          'lastMessageTime': FieldValue.serverTimestamp(),
+          'lastMessageSenderId': 'system',
+          'unreadCount': 0,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
 
         // Pour l'utilisateur courant
-        await _updateUserChatReference(
-          userId: currentUser.uid,
-          chatId: chatId,
-          otherUserId: otherUserId,
-          otherUserName: otherUserName,
-          lastMessage: systemMessage,
-          lastMessageSenderId: 'system',
-          incrementUnread: false,
-        );
+        await _firestore
+            .collection('users')
+            .doc(currentUser.uid)
+            .collection('chats')
+            .doc(chatId)
+            .set(userChatData);
 
         // Pour l'autre utilisateur
-        await _updateUserChatReference(
-          userId: otherUserId,
-          chatId: chatId,
-          otherUserId: currentUser.uid,
-          otherUserName: currentUserName,
-          lastMessage: systemMessage,
-          lastMessageSenderId: 'system',
-          incrementUnread: false,
-        );
+        await _firestore
+            .collection('users')
+            .doc(otherUserId)
+            .collection('chats')
+            .doc(chatId)
+            .set({
+          ...userChatData,
+          'otherUserId': currentUser.uid,
+          'otherUserName': currentUserName, // Utiliser le nom récupéré
+        });
       }
     } catch (e) {
       print('Erreur lors de la création du chat: $e');
@@ -268,17 +305,15 @@ class ChatService {
     }
   }
 
-  static Future<void> updateMessageReadStatus(String chatId, String messageId) async {
+  static Future<String> getUserDisplayName(String userId) async {
     try {
-      await _firestore
-          .collection('chats')
-          .doc(chatId)
-          .collection('messages')
-          .doc(messageId)
-          .update({'read': true});
+      final userProfile = await getUserProfile(userId);
+      return userProfile?['name'] ??
+          userProfile?['username'] ??
+          'Utilisateur';
     } catch (e) {
-      print('Erreur lors de la mise à jour du statut de lecture: $e');
-      rethrow;
+      print('Erreur lors de la récupération du nom: $e');
+      return 'Utilisateur';
     }
   }
 

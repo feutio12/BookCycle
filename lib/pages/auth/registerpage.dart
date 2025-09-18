@@ -87,7 +87,7 @@ class _RegisterPageState extends State<RegisterPage> {
           .collection('auctions').doc('init').set({'created': FieldValue.serverTimestamp()});
 
       await _firestore.collection('users').doc(userCredential.user!.uid)
-          .collection('chats').doc('init').set({'created': FieldValue.serverTimestamp()});
+          .collection('chats').doc('init').delete();
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -159,7 +159,6 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!value.contains(RegExp(r'[0-9]'))) {
       return 'Incluez au moins un chiffre';
     }
-
     return null;
   }
 

@@ -1,3 +1,4 @@
+import 'package:bookcycle/pages/chats/subscription_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -17,7 +18,9 @@ class DiscussionsListPage extends StatefulWidget {
 
 class _DiscussionsListPageState extends State<DiscussionsListPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  late Stream<QuerySnapshot> _discussionsStream;
+  final SubscriptionManager _subscriptionManager = SubscriptionManager();
+
+  Stream<QuerySnapshot>? _discussionsStream;
 
   @override
   void initState() {
@@ -41,6 +44,12 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
     setState(() {
       _loadDiscussions();
     });
+  }
+
+  @override
+  void dispose() {
+    _subscriptionManager.dispose(); // Nettoyer les subscriptions
+    super.dispose();
   }
 
   @override
@@ -78,68 +87,67 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
       body: RefreshIndicator(
         onRefresh: _refreshDiscussions,
         child: StreamBuilder<QuerySnapshot>(
-          stream: _discussionsStream,
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return Center(
-                child: ErrorMessage(message: 'Erreur: ${snapshot.error}'),
-              );
-            }
-
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const LoadingIndicator(message: 'Chargement des discussions...');
-            }
-
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return const Center(
-                child: InfoMessage(
-                  message: 'Aucune discussion pour le moment',
-                  icon: Icons.chat_bubble_outline,
-                ),
-              );
-            }
-
-            final discussions = snapshot.data!.docs.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              return ChatDiscussion(
-                chatId: doc.id,
-                participants: [],
-                otherUserId: data['otherUserId'] ?? '',
-                otherUserName: data['otherUserName'] ?? 'Utilisateur inconnu',
-                lastMessage: data['lastMessage'] ?? '',
-                lastMessageTime: (data['lastMessageTime'] as Timestamp).toDate(),
-                lastMessageSenderId: data['lastMessageSenderId'] ?? '',
-                unreadCount: data['unreadCount'] ?? 0,
-              );
-            }).toList();
-
-            return ListView.builder(
-              itemCount: discussions.length,
-              itemBuilder: (context, index) {
-                final discussion = discussions[index];
-                return _DiscussionTile(
-                  discussion: discussion,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChatPage(
-                          chatId: discussion.chatId,
-                          otherUserId: discussion.otherUserId,
-                          otherUserName: discussion.otherUserName,
-                          initialMessage: '',
-                        ),
-                      ),
-                    ).then((_) {
-
-                      // Rafraîchir la liste après retour de la discussion
-                      _refreshDiscussions();
-                    });
-                  },
+            stream: _discussionsStream,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(
+                  child: ErrorMessage(message: 'Erreur: ${snapshot.error}'),
                 );
-              },
-            );
-          }
+              }
+
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const LoadingIndicator(message: 'Chargement des discussions...');
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(
+                  child: InfoMessage(
+                    message: 'Aucune discussion pour le moment',
+                    icon: Icons.chat_bubble_outline,
+                  ),
+                );
+              }
+
+              final discussions = snapshot.data!.docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return ChatDiscussion(
+                  chatId: doc.id,
+                  participants: [],
+                  otherUserId: data['otherUserId'] ?? '',
+                  otherUserName: data['otherUserName'] ?? 'Utilisateur inconnu',
+                  lastMessage: data['lastMessage'] ?? '',
+                  lastMessageTime: (data['lastMessageTime'] as Timestamp).toDate(),
+                  lastMessageSenderId: data['lastMessageSenderId'] ?? '',
+                  unreadCount: data['unreadCount'] ?? 0,
+                );
+              }).toList();
+
+              return ListView.builder(
+                itemCount: discussions.length,
+                itemBuilder: (context, index) {
+                  final discussion = discussions[index];
+                  return _DiscussionTile(
+                    discussion: discussion,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChatPage(
+                            chatId: discussion.chatId,
+                            otherUserId: discussion.otherUserId,
+                            otherUserName: discussion.otherUserName,
+                            initialMessage: '',
+                          ),
+                        ),
+                      ).then((_) {
+                        // Rafraîchir la liste après retour de la discussion
+                        _refreshDiscussions();
+                      });
+                    },
+                  );
+                },
+              );
+            }
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -149,15 +157,32 @@ class _DiscussionsListPageState extends State<DiscussionsListPage> {
             MaterialPageRoute(builder: (context) => ChatBotPage()),
           );
         },
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.blue,
+        elevation: 8.0,
+        highlightElevation: 12.0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.0),
+          side: BorderSide(color: Colors.blue.shade100, width: 2.0),
+        ),
         tooltip: 'Parler avec notre assistant',
-        child: Image.asset(
-          'assets/images/robot-assistant.png',
-          width: 36,
-          height: 36,
-          color: Colors.white,
-        )
+        child: Container(
+          padding: EdgeInsets.all(8.0),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade50, Colors.white],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          child: Image.asset(
+            'assets/images/book.png',
+            width: 32,
+            height: 32,
+
+          ),
+        ),
       ),
     );
   }

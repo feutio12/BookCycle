@@ -4,8 +4,8 @@ import 'package:bookcycle/pages/home/homepage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../admin/pages/admin_dashboard.dart';
 import '../../composants/CustomButtom.dart';
-import '../admin/admin_dashboard.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -49,28 +49,28 @@ class _LoginPageState extends State<LoginPage> {
         password: password,
       );
 
-      // Vérifier si c'est l'administrateur
-      if (email == adminEmail) {
+      DocumentSnapshot userDoc = await _firestore
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
+
+      final userData = userDoc.data() as Map<String, dynamic>? ?? {};
+
+     // Vérifier si l'utilisateur est admin
+      if (userData['role'] == 'admin') {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => AdminDashboard()),
         );
-        return;
+      } else {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => Homepage(userData: userData)),
+        );
       }
 
-      // Récupérer les infos supplémentaires depuis Firestore
-      DocumentSnapshot userDoc = await _firestore
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .get();
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => Homepage(
-          userData: userDoc.data() as Map<String, dynamic>? ?? {},
-        )),
-      );
     } on FirebaseAuthException catch (e) {
       _handleAuthError(e);
     } finally {

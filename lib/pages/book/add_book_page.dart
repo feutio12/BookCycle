@@ -62,7 +62,7 @@ class _AddBookPageState extends State<AddBookPage> {
   }
 
   void _initializeForm() {
-    if (widget.book != null) {
+    if (widget.book != null && widget.bookId != null) {
       _isEditing = true;
 
       _controllers['title']!.text = widget.book!['title'] ?? '';
@@ -86,7 +86,7 @@ class _AddBookPageState extends State<AddBookPage> {
       if (pickedFile != null) {
         setState(() {
           _imageFile = File(pickedFile.path);
-          _existingImageBase64 = null; // Effacer l'image existante si nouvelle image sélectionnée
+          _existingImageBase64 = null;
         });
       }
     } catch (e) {
@@ -167,24 +167,31 @@ class _AddBookPageState extends State<AddBookPage> {
             .collection('books')
             .doc(widget.bookId)
             .update(bookData);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Livre modifié avec succès!'),
+            backgroundColor: Colors.green,
+          ),
+        );
       } else {
         // Mode ajout
         bookData['createdAt'] = FieldValue.serverTimestamp();
         bookData['likes'] = 0;
-        bookData['isPopular'] = false;
+        bookData['isPopular'] = true;
         bookData['rating'] = 0.0;
 
         await FirebaseFirestore.instance
             .collection('books')
             .add(bookData);
-      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isEditing ? 'Livre publié avec succès!' : 'Livre modifié avec succès!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Livre publié avec succès!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
 
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -281,7 +288,7 @@ class _AddBookPageState extends State<AddBookPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Ajouter un livre' : 'Modifier le livre'),
+        title: Text(_isEditing ? 'Modifier le livre' : 'Ajouter un livre'), // Correction ici
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
       ),
@@ -348,7 +355,7 @@ class _AddBookPageState extends State<AddBookPage> {
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
-                  _isEditing ? 'PUBLIER LE LIVRE' : 'MODIFIER LE LIVRE',
+                  _isEditing ? 'MODIFIER LE LIVRE' : 'PUBLIER LE LIVRE', // Correction ici
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),

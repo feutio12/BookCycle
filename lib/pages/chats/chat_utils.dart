@@ -28,7 +28,8 @@ class ChatUtils {
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isMe;
-  final bool isRead; // Nouveau paramètre
+  final bool isRead;
+
   const MessageBubble({
     super.key,
     required this.message,
@@ -43,20 +44,20 @@ class MessageBubble extends StatelessWidget {
 
     if (isSystemMessage) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(16),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                message.content,
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
+              ),
             ),
-            child: Text(
-              message.content,
-              style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
-            ),
-          ),
-        )
+          )
       );
     }
 
@@ -136,14 +137,6 @@ class MessageBubble extends StatelessWidget {
               ],
             ),
           ),
-          if (isMe) ...[
-            const SizedBox(width: 4),
-            Icon(
-              isRead ? Icons.done_all : Icons.done,
-              size: 16,
-              color: isRead ? Colors.blue : Colors.grey,
-            ),
-          ],
         ],
       ),
     );

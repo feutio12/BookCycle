@@ -13,7 +13,7 @@ class BooksPage extends StatelessWidget {
   final String currentUserId;
   final Function(String) onDeleteBook;
   final Function(Map<String, dynamic>) onEditBook;
-  final Function(String, String, String) onContactPublisher; // Nouveau callback
+  final Function() onContactPublisher; // Modifié: Function() au lieu de Function(String, String, String)
 
   const BooksPage({
     super.key,
@@ -28,7 +28,7 @@ class BooksPage extends StatelessWidget {
     required this.currentUserId,
     required this.onDeleteBook,
     required this.onEditBook,
-    required this.onContactPublisher, // Nouveau paramètre
+    required this.onContactPublisher, // Signature modifiée
   });
 
   @override

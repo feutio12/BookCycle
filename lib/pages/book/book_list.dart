@@ -74,7 +74,7 @@ class BookList extends StatelessWidget {
   final ScrollController scrollController;
   final Function(String) onDeleteBook;
   final Function(Map<String, dynamic>) onEditBook;
-  final Function(String, String, String) onContactPublisher; // Nouveau callback
+  final Function() onContactPublisher; // Nouveau callback
 
   const BookList({
     super.key,

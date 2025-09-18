@@ -29,8 +29,21 @@ class ProfileService {
 
       Map<String, dynamic> userData = userDoc.data()!;
 
-      // Calculer les statistiques en parallèle
-      final stats = await _calculateUserStats(userId);
+      // Vérifier si les statistiques sont à jour (moins de 5 minutes)
+      final lastUpdated = userData['stats']?['lastUpdated'] as Timestamp?;
+      final now = DateTime.now();
+      final shouldRefresh = lastUpdated == null ||
+          now.difference(lastUpdated.toDate()).inMinutes > 5;
+
+      Map<String, dynamic> stats;
+      if (shouldRefresh) {
+        // Calculer les nouvelles statistiques
+        stats = await _calculateUserStats(userId);
+      } else {
+        // Utiliser les statistiques existantes
+        stats = userData['stats'] as Map<String, dynamic>? ?? {};
+      }
+
       userData['stats'] = stats;
 
       // Mettre en cache
@@ -51,14 +64,15 @@ class ProfileService {
         _countUserAuctions(userId),
         _countWonAuctions(userId),
         _countActiveAuctions(userId),
+        _calculateUserRating(userId),
       ]);
 
       final stats = {
         'booksPublished': results[0],
         'auctionsCreated': results[1],
         'auctionsWon': results[2],
-        'activeAuctions': results[4],
-        'rating': await _calculateUserRating(userId),
+        'activeAuctions': results[3],
+        'rating': results[4],
         'lastUpdated': FieldValue.serverTimestamp(),
       };
 
@@ -78,24 +92,41 @@ class ProfileService {
         'booksPublished': 0,
         'auctionsCreated': 0,
         'auctionsWon': 0,
-        'activeBooks': 0,
         'activeAuctions': 0,
         'rating': 0.0,
+        'lastUpdated': FieldValue.serverTimestamp(),
       };
     }
   }
 
-  // Compter les livres publiés par l'utilisateur
-  Future<int> _countUserBooks(String userId) async {
+  // Compter les livres publiés par l'utilisateur - VERSION AMÉLIORÉE
+  Future<int?> _countUserBooks(String userId) async {
     try {
-      final query = await _firestore
+      // Utiliser count() pour optimiser la requête (moins de données transférées)
+      final query = _firestore
           .collection('books')
           .where('userId', isEqualTo: userId)
-          .get();
-      return query.size;
+          .where('isActive', isEqualTo: true); // Ajouter un filtre pour les livres actifs
+
+      final aggregateQuery = query.count();
+      final snapshot = await aggregateQuery.get();
+
+      return snapshot.count;
     } catch (e) {
       print('Erreur _countUserBooks: $e');
-      return 0;
+
+      // Fallback: utiliser l'ancienne méthode si count() n'est pas supporté
+      try {
+        final query = await _firestore
+            .collection('books')
+            .where('userId', isEqualTo: userId)
+            .where('isActive', isEqualTo: true)
+            .get();
+        return query.size;
+      } catch (e2) {
+        print('Fallback _countUserBooks aussi en erreur: $e2');
+        return 0;
+      }
     }
   }
 
@@ -157,7 +188,7 @@ class ProfileService {
         return sum + (doc.data()['rating'] as num).toDouble();
       });
 
-      return totalRating / reviews.size;
+      return double.parse((totalRating / reviews.size).toStringAsFixed(1));
     } catch (e) {
       print('Erreur _calculateUserRating: $e');
       return 0.0;
@@ -176,7 +207,17 @@ class ProfileService {
       }
 
       final data = snapshot.data()!;
-      return data['stats'] as Map<String, dynamic>? ?? await _calculateUserStats(userId);
+      final stats = data['stats'] as Map<String, dynamic>?;
+
+      // Vérifier si les statistiques sont fraîches (moins de 5 minutes)
+      final lastUpdated = stats?['lastUpdated'] as Timestamp?;
+      final now = DateTime.now();
+
+      if (lastUpdated == null || now.difference(lastUpdated.toDate()).inMinutes > 5) {
+        return await _calculateUserStats(userId);
+      }
+
+      return stats ?? await _calculateUserStats(userId);
     });
   }
 
@@ -227,6 +268,17 @@ class ProfileService {
     } catch (e) {
       print('Erreur updateUserPreferences: $e');
       rethrow;
+    }
+  }
+
+  // Méthode spécifique pour gérer la publication d'un nouveau livre
+  Future<void> handleNewBookPublished(String userId) async {
+    try {
+      // Invalider le cache et recalculer les stats
+      _cache.remove(userId);
+      await _calculateUserStats(userId);
+    } catch (e) {
+      print('Erreur handleNewBookPublished: $e');
     }
   }
 

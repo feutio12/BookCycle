@@ -3,9 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:convert';
-
-import '../../composants/CustomButtom.dart';
-import '../../composants/common_components.dart';
 import '../chats/chat_service.dart';
 import '../chats/chatpage.dart';
 import 'book_details_modal.dart'; // Nouveau fichier pour le modal
@@ -18,7 +15,7 @@ class BookCard extends StatefulWidget {
   final String currentUserId;
   final Function(String) onDeleteBook;
   final Function(Map<String, dynamic>) onEditBook;
-  final Function(String, String, String) onContactPublisher;
+  final Function() onContactPublisher;
 
   const BookCard({
     super.key,
@@ -106,7 +103,8 @@ class _BookCardState extends State<BookCard> with SingleTickerProviderStateMixin
     });
   }
 
-  void _handleContactPublisher(BuildContext context) async {
+  // Remplacer la méthode _handleContactPublisher
+  Future<void> _handleContactPublisher() async {
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
@@ -116,26 +114,34 @@ class _BookCardState extends State<BookCard> with SingleTickerProviderStateMixin
         return;
       }
 
+      // Vérifier si l'utilisateur essaie de se contacter lui-même
+      final publisherUserId = widget.book['userId'] ?? '';
+      if (publisherUserId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de contacter le vendeur - userId manquant')),
+        );
+        return;
+      }
+
+      if (currentUser.uid == publisherUserId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vous ne pouvez pas vous contacter vous-même')),
+        );
+        return;
+      }
+
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => ScaleTransition(
-          scale: CurvedAnimation(
-            parent: ModalRoute.of(context)!.animation!,
-            curve: Curves.elasticOut,
-          ),
-          child: const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
-              strokeWidth: 4,
-            ),
-          ),
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
         ),
       );
 
+      // Utiliser le userId du livre
       final chatId = await ChatService.getOrCreateChat(
         currentUser.uid,
-        widget.book['publisherEmail'],
+        publisherUserId,
         widget.book['publisherName'],
       );
 
@@ -146,7 +152,7 @@ class _BookCardState extends State<BookCard> with SingleTickerProviderStateMixin
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) => ChatPage(
             chatId: chatId,
-            otherUserId: widget.book['publisherEmail'],
+            otherUserId: publisherUserId,
             otherUserName: widget.book['publisherName'],
             initialMessage: 'Bonjour, je suis intéressé par votre livre "${widget.book['title']}"',
           ),
@@ -154,13 +160,8 @@ class _BookCardState extends State<BookCard> with SingleTickerProviderStateMixin
             const begin = Offset(1.0, 0.0);
             const end = Offset.zero;
             const curve = Curves.easeInOutQuart;
-
             var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-
-            return SlideTransition(
-              position: animation.drive(tween),
-              child: child,
-            );
+            return SlideTransition(position: animation.drive(tween), child: child);
           },
           transitionDuration: const Duration(milliseconds: 500),
         ),
@@ -666,7 +667,7 @@ class _BookCardState extends State<BookCard> with SingleTickerProviderStateMixin
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return BookDetailsModal(
-          book: widget.book,
+          books: widget.book,
           bookData: bookData,
           isOwner: isOwner,
           currentUserId: widget.currentUserId,

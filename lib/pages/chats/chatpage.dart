@@ -1,9 +1,10 @@
 import 'dart:async';
-
+import 'package:bookcycle/pages/chats/subscription_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/chats.dart';
+import '../../utils/stream_page_mixin.dart';
 import 'chat_service.dart';
 import 'chat_utils.dart' hide ChatService;
 import 'publisher_profile_page.dart';
@@ -26,28 +27,97 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with StreamPageMixin {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final SubscriptionManager _subscriptionManager = SubscriptionManager();
+  final FocusNode _messageFocusNode = FocusNode();
+
   Stream<QuerySnapshot>? _messagesStream;
   bool _isSending = false;
   bool _isInitializing = true;
-  Set<String> _readMessages = {};
+  int _unreadCount = 0;
   bool _isOtherUserOnline = false;
-  late final StreamSubscription<DocumentSnapshot> _userStatusSubscription;
+  late StreamSubscription<QuerySnapshot> _messagesSubscription;
+  Map<String, bool> _readStatus = {};
 
   @override
   void initState() {
     super.initState();
     _initializeChat();
     _prefillInitialMessage();
+    _subscribeToUnreadMessages();
     _subscribeToUserStatus();
+    _fetchOtherUserNameIfNeeded();
+    _subscribeToReadStatus();
+  }
+
+  void _subscribeToReadStatus() {
+    _messagesSubscription = FirebaseFirestore.instance
+        .collection('chats')
+        .doc(widget.chatId)
+        .collection('messages')
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        for (var change in snapshot.docChanges) {
+          if (change.type == DocumentChangeType.modified) {
+            final messageData = change.doc.data() as Map<String, dynamic>;
+            setState(() {
+              _readStatus[change.doc.id] = messageData['read'] ?? false;
+            });
+          }
+        }
+      }
+    });
+
+    _subscriptionManager.add(_messagesSubscription);
+  }
+
+  void _fetchOtherUserNameIfNeeded() async {
+    if (widget.otherUserName.isEmpty || widget.otherUserName == 'Vendeur') {
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.otherUserId)
+            .get();
+
+        if (userDoc.exists) {
+          final userData = userDoc.data() as Map<String, dynamic>;
+          final userName = userData['name'] ?? userData['email'] ?? 'Utilisateur';
+          // Mise à jour du nom si nécessaire
+        }
+      } catch (e) {
+        debugPrint('Erreur lors de la récupération du nom: $e');
+      }
+    }
+  }
+
+  void _subscribeToUnreadMessages() {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    final unreadSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid)
+        .collection('chats')
+        .doc(widget.chatId)
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted && snapshot.exists) {
+        final unreadCount = snapshot.data()?['unreadCount'] ?? 0;
+        setState(() {
+          _unreadCount = unreadCount;
+        });
+      }
+    });
+
+    _subscriptionManager.add(unreadSubscription);
   }
 
   void _subscribeToUserStatus() {
-    // Écouter les changements de statut de l'autre utilisateur
-    _userStatusSubscription = FirebaseFirestore.instance
+    final statusSubscription = FirebaseFirestore.instance
         .collection('users')
         .doc(widget.otherUserId)
         .snapshots()
@@ -58,6 +128,8 @@ class _ChatPageState extends State<ChatPage> {
         });
       }
     });
+
+    _subscriptionManager.add(statusSubscription);
   }
 
   Future<void> _initializeChat() async {
@@ -75,7 +147,6 @@ class _ChatPageState extends State<ChatPage> {
 
       _markMessagesAsRead();
 
-      // Scroll to bottom after initialization
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           _scrollController.jumpTo(0);
@@ -109,18 +180,40 @@ class _ChatPageState extends State<ChatPage> {
           .collection('chats')
           .doc(widget.chatId)
           .collection('messages')
-          .where('senderId', isNotEqualTo: currentUser.uid)
+          .where('senderId', isEqualTo: widget.otherUserId)
           .where('read', isEqualTo: false)
           .get();
 
+      final batch = FirebaseFirestore.instance.batch();
       for (var doc in messages.docs) {
-        await ChatService.updateMessageReadStatus(widget.chatId, doc.id);
-        _readMessages.add(doc.id);
+        batch.update(doc.reference, {'read': true});
+        setState(() {
+          _readStatus[doc.id] = true;
+        });
       }
 
-      await ChatService.markMessagesAsRead(widget.chatId);
+      await batch.commit();
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .collection('chats')
+          .doc(widget.chatId)
+          .update({'unreadCount': 0});
+
+      setState(() {
+        _unreadCount = 0;
+      });
     } catch (e) {
       debugPrint('Erreur lors du marquage des messages comme lus: $e');
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      _markMessagesAsRead();
     }
   }
 
@@ -169,14 +262,22 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _userStatusSubscription.cancel();
+    _messageFocusNode.dispose();
+    _subscriptionManager.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 1,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: GestureDetector(
           onTap: () {
             Navigator.push(
@@ -191,13 +292,24 @@ class _ChatPageState extends State<ChatPage> {
           },
           child: Row(
             children: [
-              CircleAvatar(
-                backgroundColor: Colors.blue,
-                child: Text(
-                  widget.otherUserName.isNotEmpty
-                      ? widget.otherUserName[0].toUpperCase()
-                      : '?',
-                  style: const TextStyle(color: Colors.white),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.blue[500],
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    widget.otherUserName.isNotEmpty
+                        ? widget.otherUserName[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -207,12 +319,19 @@ class _ChatPageState extends State<ChatPage> {
                   children: [
                     Text(
                       widget.otherUserName,
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       _isOtherUserOnline ? "En ligne" : "Hors ligne",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: _isOtherUserOnline ? Colors.green : Colors.grey,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _isOtherUserOnline ? Colors.green[600] : Colors.grey[600],
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -225,41 +344,13 @@ class _ChatPageState extends State<ChatPage> {
         actions: [
           IconButton(
             onPressed: () {},
-            icon: const Icon(Icons.videocam),
+            icon: Icon(Icons.videocam, color: Colors.blue[600]),
             tooltip: 'Appel vidéo',
           ),
           IconButton(
             onPressed: () {},
-            icon: const Icon(Icons.call),
+            icon: Icon(Icons.call, color: Colors.blue[600]),
             tooltip: 'Appel vocal',
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'profile') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => PublisherProfilePage(
-                      publisherId: widget.otherUserId,
-                      publisherName: widget.otherUserName,
-                    ),
-                  ),
-                );
-              } else if (value == 'clear') {
-                _showClearChatDialog();
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'profile',
-                child: Text('Voir le profil'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'clear',
-                child: Text('Effacer la conversation'),
-              ),
-            ],
           ),
         ],
       ),
@@ -267,156 +358,339 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           Expanded(
             child: _isInitializing
-                ? const Center(child: CircularProgressIndicator())
+                ? _buildLoadingState()
                 : StreamBuilder<QuerySnapshot>(
               stream: _messagesStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                    child: ErrorMessage(
-                      message: 'Erreur: ${snapshot.error}',
-                      onRetry: _initializeChat,
-                    ),
-                  );
+                  return _buildErrorState(snapshot.error.toString());
                 }
 
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return _buildLoadingState();
                 }
 
                 final messages = snapshot.data!.docs;
 
                 if (messages.isEmpty) {
-                  return const Center(
-                    child: InfoMessage(
-                      message: 'Aucun message pour le moment',
-                      icon: Icons.chat_bubble_outline,
-                    ),
-                  );
+                  return _buildEmptyState();
                 }
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final messageDoc = messages[index];
-                    final messageData = messageDoc.data() as Map<String, dynamic>;
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.grey[50]!,
+                        Colors.grey[100]!,
+                      ],
+                    ),
+                  ),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final messageDoc = messages[index];
+                      final messageData = messageDoc.data() as Map<String, dynamic>;
 
-                    final message = ChatMessage(
-                      id: messageDoc.id,
-                      senderId: messageData['senderId'] ?? '',
-                      senderName: messageData['senderName'] ?? 'Inconnu',
-                      content: messageData['content'] ?? '',
-                      timestamp: (messageData['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
-                      isRead: messageData['read'] ?? false,
-                    );
+                      final message = ChatMessage(
+                        id: messageDoc.id,
+                        senderId: messageData['senderId'] ?? '',
+                        senderName: messageData['senderName'],
+                        content: messageData['content'] ?? '',
+                        timestamp: (messageData['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+                        isRead: messageData['read'] ?? false,
+                      );
 
-                    final isMe = message.senderId == _auth.currentUser?.uid;
-                    final isRead = isMe ? message.isRead : true;
+                      final isMe = message.senderId == _auth.currentUser?.uid;
+                      final isRead = isMe ? (_readStatus[message.id] ?? message.isRead) : true;
 
-                    return MessageBubble(
-                      message: message,
-                      isMe: isMe,
-                      isRead: isRead,
-                    );
-                  },
+                      return _buildMessageBubble(message, isMe, isRead);
+                    },
+                  ),
                 );
               },
             ),
           ),
-          MessageInputField(
-            controller: _messageController,
-            onSend: _sendMessage,
-            isSending: _isSending,
+          _buildMessageInput(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Chargement de la conversation...',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showClearChatDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Effacer la conversation'),
-          content: const Text('Êtes-vous sûr de vouloir effacer toute la conversation? Cette action est irréversible.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Annuler'),
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: Colors.red[400],
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Implémenter la logique pour effacer la conversation
-              },
-              child: const Text('Effacer', style: TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            Text(
+              'Erreur de chargement',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
             ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-// Composants supplémentaires pour une meilleure expérience
-class ErrorMessage extends StatelessWidget {
-  final String message;
-  final VoidCallback? onRetry;
-
-  const ErrorMessage({super.key, required this.message, this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          if (onRetry != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: onRetry,
+              onPressed: _initializeChat,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
               child: const Text('Réessayer'),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
-}
 
-class InfoMessage extends StatelessWidget {
-  final String message;
-  final IconData icon;
-
-  const InfoMessage({super.key, required this.message, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+  Widget _buildEmptyState() {
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 48, color: Colors.grey),
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 64,
+            color: Colors.grey[400],
+          ),
           const SizedBox(height: 16),
           Text(
-            message,
+            'Commencez la conversation',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Envoyez votre premier message à ${widget.otherUserName}',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildMessageBubble(ChatMessage message, bool isMe, bool isRead) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMe)
+            Container(
+              width: 32,
+              height: 32,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue[400],
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  message.senderName.isNotEmpty
+                      ? message.senderName[0].toUpperCase()
+                      : '?',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
+              ),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isMe ? Colors.blue[600] : Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
+                  bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.content,
+                    style: TextStyle(
+                      color: isMe ? Colors.white : Colors.black87,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        _formatTime(message.timestamp),
+                        style: TextStyle(
+                          color: isMe ? Colors.white70 : Colors.grey[600],
+                          fontSize: 10,
+                        ),
+                      ),
+                      if (isMe) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          isRead ? Icons.done_all : Icons.done,
+                          size: 12,
+                          color: isRead ? Colors.blue[100] : Colors.white70,
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageInput() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () {},
+                    icon: Icon(Icons.emoji_emotions_outlined, color: Colors.grey[600]),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      focusNode: _messageFocusNode,
+                      decoration: InputDecoration(
+                        hintText: 'Tapez votre message...',
+                        hintStyle: TextStyle(color: Colors.grey[600]),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      maxLines: null,
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {},
+                    icon: Icon(Icons.attach_file, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.blue[600],
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              onPressed: _sendMessage,
+              icon: _isSending
+                  ? SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+                  : const Icon(Icons.send, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final messageDate = DateTime(timestamp.year, timestamp.month, timestamp.day);
+
+    if (messageDate == today) {
+      return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    } else {
+      return '${timestamp.day}/${timestamp.month} ${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    }
   }
 }

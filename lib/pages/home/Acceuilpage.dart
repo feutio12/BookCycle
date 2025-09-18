@@ -87,8 +87,9 @@ class _AcceuilpageState extends State<Acceuilpage> {
         final data = doc.data();
         final publisherEmail = data['publisherEmail'] ?? '';
         String publisherName = 'Utilisateur inconnu';
+        String publisherUserId = data['userId'] ?? '';
 
-        // Récupérer le nom de l'utilisateur
+        // Récupérer les informations complètes de l'utilisateur depuis la collection 'users'
         if (publisherEmail.isNotEmpty) {
           try {
             final userQuery = await _firestore.collection('users')
@@ -97,14 +98,24 @@ class _AcceuilpageState extends State<Acceuilpage> {
                 .get();
 
             if (userQuery.docs.isNotEmpty) {
-              final userData = userQuery.docs.first.data();
-              publisherName = userData['displayName'] ??
-                  userData['name'] ??
-                  userData['email']?.split('@').first ??
-                  'Utilisateur';
+              final userDoc = userQuery.docs.first;
+              final userData = userDoc.data();
+
+              // RÉCUPÉRER LE NOM DEPUIS LE CHAMP 'name' DE LA COLLECTION 'users'
+              publisherName = userData['name'] ?? publisherEmail.split('@').first;
+
+              publisherUserId = userDoc.id;
+
+              // Debug: afficher les informations récupérées
+              print('Publicateur trouvé: $publisherName (email: $publisherEmail)');
+            } else {
+              // Si l'utilisateur n'est pas trouvé, utiliser la partie avant @ de l'email
+              publisherName = publisherEmail.split('@').first;
+              print('Utilisateur non trouvé pour email: $publisherEmail');
             }
           } catch (e) {
             print('Erreur lors de la récupération du publicateur: $e');
+            publisherName = publisherEmail.split('@').first;
           }
         }
 
@@ -126,11 +137,12 @@ class _AcceuilpageState extends State<Acceuilpage> {
           'isPopular': data['isPopular'] ?? false,
           'createdAt': data['createdAt']?.toDate() ?? DateTime.now(),
           'isLiked': isLiked,
-          'publisherEmail': publisherEmail, // Email du publieur
+          'publisherEmail': publisherEmail,
+          'userId': publisherUserId,
           'condition': data['condition'] ?? 'Bon état',
           'type': data['type'] ?? 'Échange',
           'location': data['location'] ?? 'Non spécifié',
-          'publisherName': publisherName,
+          'publisherName': publisherName, // NOM CORRECTEMENT RÉCUPÉRÉ
           'likedBy': likedBy,
         };
       }));
@@ -248,7 +260,8 @@ class _AcceuilpageState extends State<Acceuilpage> {
           book: book,
           publisherEmail: book['publisherEmail'] ?? '',
           publisherName: book['publisherName'] ?? 'Utilisateur inconnu',
-          bookId: book['id'] ?? '', publisherId: '',
+          bookId: book['id'] ?? '',
+          publisherId: '',
         ),
       ),
     );
@@ -279,8 +292,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
       MaterialPageRoute(builder: (context) => const LoginPage()),
     );
   }
-
-  // Ajoutez ces fonctions dans votre _AcceuilpageState
 
   Future<void> _handleDeleteBook(String bookId) async {
     final user = _auth.currentUser;
@@ -333,7 +344,6 @@ class _AcceuilpageState extends State<Acceuilpage> {
     } catch (e) {
       _showErrorSnackBar('Erreur lors de la suppression: $e');
     }
-
   }
 
   Future<void> _handleEditBook(Map<String, dynamic> book) async {
@@ -354,93 +364,15 @@ class _AcceuilpageState extends State<Acceuilpage> {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => AddBookPage(book: book),
+        builder: (context) => AddBookPage(
+          book: book,
+          bookId: book['id'], // Ajouter l'ID du livre
+        ),
       ),
     );
 
     if (result == true && mounted) {
       await _fetchBooks(); // Recharger après modification
-    }
-  }
-
-  Future<void> _handleContactPublisher(String publisherEmail, String publisherName, String bookTitle) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      _showLoginRequiredSnackBar('pour contacter un publicateur');
-      return;
-    }
-
-    try {
-      // Vérifier qu'on ne se contacte pas soi-même
-      if (publisherEmail == user.email) {
-        _showErrorSnackBar('Vous ne pouvez pas vous contacter vous-même');
-        return;
-      }
-
-      // Générer l'ID de chat
-      final chatId = ChatService.generateChatId(user.uid, publisherEmail);
-
-      // Créer le chat si nécessaire
-      await ChatService.createChatIfNeeded(
-        chatId: chatId,
-        otherUserId: publisherEmail,
-        otherUserName: publisherName,
-      );
-
-      // Envoyer le message initial directement
-      final initialMessage = "Bonjour, je suis intéressé par votre livre \"$bookTitle\"";
-
-      await ChatService.sendMessage(
-        chatId: chatId,
-        content: initialMessage,
-        otherUserId: publisherEmail,
-        otherUserName: publisherName,
-      );
-
-      // Naviguer vers la page de chat
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChatPage(
-            chatId: chatId,
-            otherUserId: publisherEmail,
-            otherUserName: publisherName,
-            initialMessage: "", // Maintenant vide car le message est déjà envoyé
-          ),
-        ),
-      );
-
-      // Mettre à jour le compteur de messages non lus pour le publicateur
-      await _updateUnreadCountForPublisher(chatId, publisherEmail);
-
-    } catch (e) {
-      _showErrorSnackBar('Erreur lors de la création du chat: $e');
-    }
-  }
-
-  Future<void> _updateUnreadCountForPublisher(String chatId, String publisherEmail) async {
-    try {
-      // Mettre à jour le compteur de messages non lus pour le publicateur
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(publisherEmail)
-          .collection('chats')
-          .doc(chatId)
-          .update({
-        'unreadCount': FieldValue.increment(1),
-        'lastMessageTime': FieldValue.serverTimestamp(),
-      });
-
-      // Mettre à jour également le document chat principal
-      await FirebaseFirestore.instance
-          .collection('chats')
-          .doc(chatId)
-          .update({
-        'unreadCount': FieldValue.increment(1),
-      });
-
-    } catch (e) {
-      print('Erreur lors de la mise à jour du compteur de non-lus: $e');
     }
   }
 
@@ -547,12 +479,11 @@ class _AcceuilpageState extends State<Acceuilpage> {
             filters: _filters,
             colorScheme: Theme.of(context).colorScheme,
             textTheme: Theme.of(context).textTheme,
-            currentUserId: user?.email ?? '', // Utiliser l'email comme ID
+            currentUserId: user?.email ?? '',
             isLoading: _isLoading,
             scrollController: _scrollController,
-            onDeleteBook: _handleDeleteBook, // Callback pour suppression
-            onEditBook: _handleEditBook, // Callback pour modification
-            onContactPublisher: _handleContactPublisher,
+            onDeleteBook: _handleDeleteBook,
+            onEditBook: _handleEditBook, onContactPublisher: () {  },
           ),
         ),
         floatingActionButton: FloatingActionButton(

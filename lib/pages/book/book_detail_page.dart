@@ -30,6 +30,7 @@ class BookDetailPage extends StatelessWidget {
     return (book[key] as num?)?.toDouble() ?? defaultValue;
   }
 
+  // Modifier _startChatWithPublisher
   Future<void> _startChatWithPublisher(BuildContext context, String bookTitle) async {
     final currentUser = FirebaseAuth.instance.currentUser;
 
@@ -46,14 +47,23 @@ class BookDetailPage extends StatelessWidget {
       return;
     }
 
-    final chatId = ChatService.generateChatId(currentUser.uid, publisherId);
+    // Utiliser le vrai userId du livre
+    final bookUserId = book['userId'];
+    if (bookUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de contacter le vendeur - userId manquant')),
+      );
+      return;
+    }
+
+    final chatId = ChatService.generateChatId(currentUser.uid, bookUserId);
     final initialMessage = 'Bonjour, je suis intéressé par votre livre "$bookTitle"';
 
     try {
       // Créer le chat s'il n'existe pas
       await ChatService.createChatIfNeeded(
         chatId: chatId,
-        otherUserId: publisherId,
+        otherUserId: bookUserId, // Utiliser le vrai userId
         otherUserName: publisherName,
       );
 
@@ -62,7 +72,7 @@ class BookDetailPage extends StatelessWidget {
         MaterialPageRoute(
           builder: (context) => ChatPage(
             chatId: chatId,
-            otherUserId: publisherId,
+            otherUserId: bookUserId, // Utiliser le vrai userId
             otherUserName: publisherName,
             initialMessage: initialMessage,
           ),

@@ -1,28 +1,99 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../composants/CustomButtom.dart';
 import '../../composants/common_components.dart';
+import '../chats/chat_service.dart';
+import '../chats/chatpage.dart';
 
 class BookDetailsModal extends StatelessWidget {
-  final Map<String, dynamic> book;
+  final Map<String, dynamic> books;
   final Map<String, dynamic> bookData;
   final bool isOwner;
   final String currentUserId;
   final Function(Map<String, dynamic>) onEditBook;
   final Function(String) onDeleteBook;
-  final Function(BuildContext) onContactPublisher;
+  final Function() onContactPublisher; // Modifié: Function() au lieu de Function(String, String, String)
 
   const BookDetailsModal({
     super.key,
-    required this.book,
+    required this.books,
     required this.bookData,
     required this.isOwner,
     required this.currentUserId,
     required this.onEditBook,
     required this.onDeleteBook,
-    required this.onContactPublisher,
+    required this.onContactPublisher, // Signature modifiée
   });
+
+  // Méthode pour générer un ID de chat cohérent
+  String _generateChatId(String userId1, String userId2) {
+    List<String> ids = [userId1, userId2];
+    ids.sort();
+    return '${ids[0]}_${ids[1]}';
+  }
+
+  // Remplacer la méthode _openChatWithPublisher
+  Future<void> _openChatWithPublisher(BuildContext context) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vous devez être connecté pour contacter le vendeur')),
+        );
+        return;
+      }
+
+      // Vérifier que le livre a un propriétaire avec userId
+      if (books['userId'] == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de contacter le vendeur - userId manquant')),
+        );
+        return;
+      }
+
+      // Vérifier si l'utilisateur essaie de se contacter lui-même
+      if (currentUser.uid == books['userId']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vous ne pouvez pas vous contacter vous-même')),
+        );
+        return;
+      }
+
+      // Générer l'ID de chat avec les vrais userId
+      final chatId = ChatService.generateChatId(currentUser.uid, books['userId']);
+      final bookTitle = books['title'] ?? 'ce livre';
+      final initialMessage = 'Bonjour, je suis intéressé par votre livre "$bookTitle"';
+
+      // Créer le chat
+      await ChatService.createChatIfNeeded(
+        chatId: chatId,
+        otherUserId: books['userId'], // Utiliser le userId du livre
+        otherUserName: books['publisherName'] ?? 'Vendeur',
+      );
+
+      // Naviguer vers la page de chat
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatPage(
+            chatId: chatId,
+            otherUserId: books['userId'], // Utiliser le userId
+            otherUserName: books['publisherName'] ?? 'Vendeur',
+            initialMessage: initialMessage,
+          ),
+        ),
+      );
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: ${e.toString()}')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +194,7 @@ class BookDetailsModal extends StatelessWidget {
 
   Widget _buildModalImage() {
     return Hero(
-      tag: 'book-image-${book['id']}',
+      tag: 'book-image-${books['id']}',
       child: Material(
         color: Colors.transparent,
         child: _buildBookImage(
@@ -319,7 +390,7 @@ class BookDetailsModal extends StatelessWidget {
                 text: 'Modifier',
                 onPressed: () {
                   Navigator.pop(context);
-                  onEditBook(book);
+                  onEditBook(books);
                 },
                 backgroundColor: AppColors.primaryBlue,
                 textColor: Colors.white,
@@ -341,9 +412,8 @@ class BookDetailsModal extends StatelessWidget {
             Expanded(
               child: CustomButton(
                 text: 'Contacter',
-                onPressed: () {
-                  Navigator.pop(context);
-                  onContactPublisher(context);
+                onPressed: () async {
+                  await _openChatWithPublisher(context);
                 },
                 backgroundColor: AppColors.success,
                 textColor: Colors.white,
